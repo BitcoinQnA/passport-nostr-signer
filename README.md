@@ -24,6 +24,13 @@ It has two halves that ship together in this repo:
 > workspace, not standalone — see [Building](#building)) plus a companion
 > extension. Validated on a Passport Prime dev unit over WebUSB.
 
+## Demo
+
+A short video of the signer running on real (dev) Passport Prime hardware,
+signing a Nostr event end to end:
+
+▶ **[Watch the demo on Nostr](https://primal.net/e/nevent1qqsvfcu924zerqmwux6uftfuhuz5lyqme3lrzmcjat8hrz4x6vwt9qc445tlt)**
+
 ## Why one repo
 
 The signer and the extension are two halves of one mechanism — the device is
