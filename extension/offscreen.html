@@ -1,0 +1,17 @@
+<!--
+SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Prime Signer — USB worker</title>
+  </head>
+  <body>
+    <!-- Hidden document that hosts navigator.usb. WebUSB is not
+         exposed in MV3 service workers, so the service worker
+         (background.js) messages us to do the actual I/O. -->
+    <script src="offscreen.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,267 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { Button, ButtonSection, CircleIcon, ContentSection, HeadingLg,
+         IconButton, AppHeader, LineCard, Link, TextLg, TextMd, TextSm, BasePage,
+         ShieldPage, OverlayMenu, PopupMenuItem, Editable, WrappedIcon,
+         PageBody } from "@ui/widgets.slint";
+import { CardPageVersion, EditPageVersion } from "@ui/pages.slint";
+import { Importance, Palette, Size, CardColor, Utils } from "@ui/theme.slint";
+import { Callbacks, StoredKey } from "../../callbacks.slint";
+import { MainPageProps } from "./props.slint";
+import { Navigate } from "../../gen/navigate.slint";
+
+component KeyCard inherits Rectangle {
+    in property <StoredKey> key;
+    in property <CardColor> card-color: CardColor.purple;
+    in property <bool> active;
+    in property <bool> edit-mode;
+    in property <bool> archived-view;
+    callback clicked();
+
+    height: 96px;
+    LineCard {
+        horizontal-stretch: 1;
+        height: parent.height;
+        width: 448px - (edit-mode ? 48px : 0px);
+        card-color: card-color;
+
+        HorizontalLayout {
+            padding-left: Size.sz6;
+            padding-right: Size.sz5;
+            alignment: stretch;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: Size.sz0_5;
+
+                TextLg {
+                    text: key.label;
+                    color: Palette.white;
+                    bold: true;
+                    wrap: no-wrap;
+                    overflow: elide;
+                }
+
+                if active && !archived-view: TextSm {
+                    text: "active";
+                    color: Palette.white;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                CircleIcon {
+                    icon: "key";
+                    line-color: card-color;
+                }
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => { clicked(); }
+    }
+}
+
+export component MainPagePage inherits Rectangle {
+    in property <MainPageProps> props;
+    private property <bool> is-menu-open: false;
+    private property <bool> edit-mode: false;
+    private property <bool> archive-view: props.version == CardPageVersion.archive;
+
+    function go-add-key() {
+        Callbacks.editing-uuid = "";
+        Callbacks.editing-label = "";
+        Callbacks.editing-npub = "";
+        Callbacks.editing-color = 3; // purple (picker index)
+        Callbacks.editing-archived = false;
+        Callbacks.editing-error = "";
+        Navigate.edit-page({ version: EditPageVersion.add }, { });
+    }
+
+    // ---- Empty state (main view, zero live keys) ------------------------
+    if !archive-view && Callbacks.live-count == 0: ShieldPage {
+        ContentSection {
+            HorizontalLayout {
+                alignment: center;
+                WrappedIcon {
+                    outer-icon: "jumbo-circle";
+                    inner-icon: "key";
+                }
+            }
+
+            HeadingLg {
+                vertical-stretch: 0;
+                text: "Create your first Nostr key";
+                horizontal-alignment: center;
+            }
+
+            TextMd {
+                text: "Sign events without your nsec ever leaving this device.";
+                color: Palette.content-secondary;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+
+        ButtonSection {
+            Button {
+                icon: "";
+                label: "New Key";
+                importance: primary;
+                clicked => { go-add-key(); }
+            }
+        }
+    }
+
+    // ---- Populated main view OR archive view ---------------------------
+    if archive-view || Callbacks.live-count > 0: BasePage {
+        VerticalLayout {
+            AppHeader {
+                title: archive-view ? "Archived keys" : "Nostr Signer";
+                side-padding: Size.sz6;
+
+                // AppHeader slots fill left then right. Put a spacer on the
+                // left when we only need a right-aligned action button.
+                if archive-view: IconButton {
+                    icon: "chevron-left";
+                    size: Size.sz8;
+                    importance: Importance.normal;
+                    clicked => {
+                        Callbacks.archive-mode = false;
+                        Navigate.backward();
+                    }
+                }
+
+                if !archive-view: Rectangle { }
+
+                if !archive-view && !edit-mode: IconButton {
+                    icon: "ellipsis";
+                    size: Size.sz8;
+                    importance: Importance.normal;
+                    clicked => { is-menu-open = !is-menu-open; }
+                }
+
+                if !archive-view && edit-mode: VerticalLayout {
+                    alignment: center;
+                    Link {
+                        label: "Done";
+                        touch-factor: 1.5;
+                        importance: Importance.normal;
+                        clicked => { edit-mode = false; }
+                    }
+                }
+            }
+
+            PageBody {
+                ContentSection {
+                    spacing: Size.sz3;
+
+                    for entry[index] in Callbacks.keys: Rectangle {
+                        height: entry.archived == archive-view ? 96px : 0px;
+                        visible: entry.archived == archive-view;
+
+                        if entry.archived == archive-view: Editable {
+                            edit-mode: edit-mode && !archive-view;
+                            drag-and-drop: false;
+
+                            edit => {
+                                Callbacks.editing-uuid = entry.uuid;
+                                Callbacks.editing-label = entry.label;
+                                Callbacks.editing-npub = entry.npub-full;
+                                Callbacks.editing-color = entry.color;
+                                Callbacks.editing-archived = entry.archived;
+                                Callbacks.editing-error = "";
+                                Navigate.edit-page({
+                                    version: archive-view ? EditPageVersion.archive : EditPageVersion.edit,
+                                }, { });
+                            }
+
+                            KeyCard {
+                                key: entry;
+                                card-color: archive-view ? CardColor.dark-grey : Utils.index-to-card-color(entry.color);
+                                active: entry.uuid == Callbacks.selected-uuid;
+                                edit-mode: edit-mode && !archive-view;
+                                archived-view: archive-view;
+
+                                clicked => {
+                                    if (archive-view) {
+                                        Callbacks.editing-uuid = entry.uuid;
+                                        Callbacks.editing-label = entry.label;
+                                        Callbacks.editing-npub = entry.npub-full;
+                                        Callbacks.editing-color = entry.color;
+                                        Callbacks.editing-archived = entry.archived;
+                                        Callbacks.editing-error = "";
+                                        Navigate.edit-page({ version: EditPageVersion.archive }, { });
+                                    } else if (edit-mode) {
+                                        Callbacks.editing-uuid = entry.uuid;
+                                        Callbacks.editing-label = entry.label;
+                                        Callbacks.editing-npub = entry.npub-full;
+                                        Callbacks.editing-color = entry.color;
+                                        Callbacks.editing-archived = entry.archived;
+                                        Callbacks.editing-error = "";
+                                        Navigate.edit-page({ version: EditPageVersion.edit }, { });
+                                    } else {
+                                        // Normal tap → open details page
+                                        Callbacks.editing-uuid = entry.uuid;
+                                        Callbacks.editing-label = entry.label;
+                                        Callbacks.editing-npub = entry.npub-full;
+                                        Callbacks.editing-color = entry.color;
+                                        Callbacks.editing-archived = entry.archived;
+                                        Callbacks.editing-error = "";
+                                        Navigate.details-page({ });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if archive-view && Callbacks.archived-count == 0: HorizontalLayout {
+                        alignment: center;
+                        padding-top: Size.sz8;
+                        TextSm {
+                            text: "No archived keys.";
+                            color: Palette.content-tertiary;
+                        }
+                    }
+                }
+
+                ButtonSection {
+                    if !archive-view: Button {
+                        icon: "";
+                        label: "New Key";
+                        importance: primary;
+                        clicked => { go-add-key(); }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Ellipsis menu (main only; New key is now the bottom CTA) -------
+    if is-menu-open: OverlayMenu {
+        PopupMenuItem {
+            label: "Edit";
+            icon: "edit";
+            first: true;
+            clicked => {
+                is-menu-open = false;
+                edit-mode = true;
+            }
+        }
+
+        PopupMenuItem {
+            label: "Archive";
+            icon: "archive";
+            last: true;
+            clicked => {
+                is-menu-open = false;
+                Callbacks.archive-mode = true;
+                Navigate.main-page({ version: CardPageVersion.archive }, { });
+            }
+        }
+
+        touched-off => { is-menu-open = false; }
+    }
+}

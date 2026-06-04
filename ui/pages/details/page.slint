@@ -1,0 +1,202 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { AppHeader, Button, ButtonSection, IconButton, HeadingSm, TextSm, TextMd,
+         BasePage, PageBody, ContentSection, ConfirmationModal, QrCodeCard } from "@ui/widgets.slint";
+import { EditPageVersion } from "@ui/pages.slint";
+import { Importance, Palette, Size } from "@ui/theme.slint";
+import { Callbacks } from "../../callbacks.slint";
+import { Navigate } from "../../gen/navigate.slint";
+
+component FieldBlock inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <bool> sensitive;
+    in property <bool> blurred;
+    callback action-clicked();
+    in property <string> action-label;
+
+    background: Palette.background-primary-alternative;
+    border-radius: Size.sz3;
+
+    VerticalLayout {
+        padding: Size.sz4;
+        spacing: Size.sz1;
+
+        HorizontalLayout {
+            alignment: space-between;
+            HeadingSm {
+                text: label;
+                color: Palette.content-secondary;
+            }
+            if sensitive && !blurred: TextSm {
+                text: "sensitive";
+                color: Palette.content-negative;
+            }
+        }
+
+        if blurred: TextSm {
+            text: "••• hidden •••";
+            color: Palette.content-tertiary;
+        }
+
+        if !blurred: TextSm {
+            text: value;
+            color: Palette.content-primary;
+            wrap: char-wrap;
+        }
+
+        if action-label != "": HorizontalLayout {
+            alignment: start;
+            padding-top: Size.sz2;
+            Button {
+                label: action-label;
+                importance: sensitive ? Importance.negative : Importance.secondary;
+                clicked => { action-clicked(); }
+            }
+        }
+    }
+}
+
+export component DetailsPagePage inherits Rectangle {
+    property <bool> show-reveal-confirm: false;
+    property <bool> show-qr: false;
+    property <bool> nsec-revealed: false;
+    property <string> nsec-value: "";
+
+    property <bool> is-active: Callbacks.editing-uuid == Callbacks.selected-uuid;
+
+    init => {
+        nsec-revealed = false;
+        nsec-value = "";
+    }
+
+    BasePage {
+        VerticalLayout {
+            AppHeader {
+                title: Callbacks.editing-label;
+                title-color: Palette.content-primary;
+                side-padding: Size.sz6;
+
+                IconButton {
+                    icon: "chevron-left";
+                    size: Size.sz8;
+                    importance: Importance.normal;
+                    clicked => { Navigate.backward(); }
+                }
+            }
+
+            PageBody {
+                ContentSection {
+                    spacing: Size.sz4;
+
+                    FieldBlock {
+                        label: "Public key (npub)";
+                        value: Callbacks.editing-npub;
+                        sensitive: false;
+                        blurred: false;
+                        action-label: "Show QR Code";
+                        action-clicked => { show-qr = true; }
+                    }
+
+                    FieldBlock {
+                        label: "Secret key (nsec)";
+                        value: nsec-value;
+                        sensitive: true;
+                        blurred: !nsec-revealed;
+                        action-label: nsec-revealed ? "Hide" : "Reveal Secret Key";
+                        action-clicked => {
+                            if (nsec-revealed) {
+                                nsec-revealed = false;
+                                nsec-value = "";
+                            } else {
+                                show-reveal-confirm = true;
+                            }
+                        }
+                    }
+
+                    TextSm {
+                        text: "Your nsec is sealed to this device. Only reveal when transferring to another signer.";
+                        color: Palette.content-tertiary;
+                        wrap: word-wrap;
+                    }
+                }
+
+                ButtonSection {
+                    if !is-active: Button {
+                        icon: "";
+                        label: "Use This Key";
+                        importance: primary;
+                        clicked => {
+                            Callbacks.select-key(Callbacks.editing-uuid);
+                            Navigate.backward();
+                        }
+                    }
+
+                    Button {
+                        icon: "edit";
+                        label: "Edit Details";
+                        importance: secondary;
+                        clicked => {
+                            Navigate.edit-page({ version: EditPageVersion.edit }, { });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if show-qr: Rectangle {
+        background: rgba(0, 0, 0, 85%);
+
+        TouchArea {
+            clicked => { show-qr = false; }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: Size.sz4;
+            padding: Size.sz6;
+
+            HorizontalLayout {
+                alignment: center;
+                QrCodeCard {
+                    data: Callbacks.editing-npub;
+                }
+            }
+
+            TextSm {
+                text: Callbacks.editing-npub;
+                color: white;
+                horizontal-alignment: center;
+                wrap: char-wrap;
+            }
+
+            HorizontalLayout {
+                alignment: center;
+                Button {
+                    label: "Close";
+                    importance: secondary;
+                    clicked => { show-qr = false; }
+                }
+            }
+        }
+    }
+
+    if show-reveal-confirm: ConfirmationModal {
+        icon: "alert";
+        title: "Reveal secret key?";
+        text: "This is your master secret. Anyone who sees it can sign as you. Only reveal it when transferring the identity to another signer.";
+        cancel-button-label: "Cancel";
+        confirm-button-label: "Reveal";
+        critical: true;
+
+        cancel-clicked => { show-reveal-confirm = false; }
+
+        confirm-clicked => {
+            show-reveal-confirm = false;
+            nsec-value = Callbacks.reveal-nsec(Callbacks.editing-uuid);
+            nsec-revealed = nsec-value != "";
+        }
+    }
+}

@@ -1,0 +1,287 @@
+<!--
+SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Passport Prime Signer — Settings</title>
+    <style>
+      :root {
+        --fg: #f4f4f5;
+        --fg-muted: #a1a1aa;
+        --fg-subtle: #71717a;
+        --bg: #18181b;
+        --surface: #27272a;
+        --border: #3f3f46;
+        --accent: #269eb5;
+        --accent-fg: #ffffff;
+        --success: #4ade80;
+        --error: #f87171;
+        --warning: #fbbf24;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+        background: var(--bg);
+        color: var(--fg);
+        font-size: 14px;
+        line-height: 1.5;
+        min-height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+
+      .logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      h1 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+
+      p.hint {
+        color: var(--fg-muted);
+        font-size: 13px;
+        line-height: 1.55;
+        margin: 0;
+      }
+
+      .intro {
+        margin: 0 0 24px 0;
+      }
+
+      section, details {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-top: 16px;
+      }
+
+      details summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--fg);
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      details summary::-webkit-details-marker { display: none; }
+      details summary::before {
+        content: "▸";
+        color: var(--fg-subtle);
+        transition: transform 0.15s;
+      }
+      details[open] summary::before {
+        transform: rotate(90deg);
+      }
+      details[open] summary {
+        margin-bottom: 12px;
+      }
+
+      label {
+        display: block;
+        margin-top: 14px;
+        font-weight: 500;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--fg-subtle);
+      }
+      label.row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 400;
+        font-size: 14px;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--fg);
+        margin-top: 4px;
+      }
+      label.row input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 10px 12px;
+        margin-top: 6px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 13px;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      code {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: var(--fg-muted);
+      }
+
+      button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        font-family: inherit;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--fg);
+        border-radius: 10px;
+        transition: background 0.15s, border-color 0.15s, transform 0.05s;
+      }
+      button:hover:not(:disabled) {
+        background: var(--surface);
+        border-color: var(--fg-subtle);
+      }
+      button:active:not(:disabled) { transform: translateY(1px); }
+      button:disabled { opacity: 0.5; cursor: progress; }
+
+      button.primary {
+        background: var(--accent);
+        color: var(--accent-fg);
+        border-color: var(--accent);
+        font-weight: 500;
+      }
+      button.primary:hover:not(:disabled) {
+        background: var(--accent);
+        border-color: var(--accent);
+        filter: brightness(1.08);
+      }
+      button.primary:disabled {
+        background: var(--accent);
+        border-color: var(--accent);
+        opacity: 0.5;
+      }
+      button.primary.flash {
+        animation: pair-flash 0.8s ease-in-out 2;
+      }
+      @keyframes pair-flash {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(38, 158, 181, 0); }
+        50%      { box-shadow: 0 0 0 8px rgba(38, 158, 181, 0.35); }
+      }
+
+      .saved {
+        margin-left: 10px;
+        font-size: 12px;
+        color: var(--success);
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .saved.visible { opacity: 1; }
+
+      #saved-indicator {
+        display: block;
+        text-align: right;
+        margin-top: 24px;
+      }
+
+      .section-hint {
+        margin-top: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path
+            fill="currentColor"
+            d="M21 10h-8.35A5.99 5.99 0 0 0 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6a5.99 5.99 0 0 0 5.65-4H13l2 2 2-2 2 2 4-4.04L21 10zM7 15c-1.65 0-3-1.35-3-3s1.35-3 3-3 3 1.35 3 3-1.35 3-3 3z"
+          />
+        </svg>
+      </div>
+      <h1>Passport Prime Signer</h1>
+    </header>
+
+    <p class="hint intro">
+      Select which key to sign with from the <strong>extension popup</strong>
+      (click the toolbar icon). Connect a new Passport Prime here.
+    </p>
+
+    <section id="pair-section">
+      <button id="pair" class="primary" type="button">Connect Passport Prime</button>
+      <span id="pair-status" class="saved"></span>
+      <p class="hint section-hint">
+        Opens the system WebUSB device picker. Pick your Prime — it's
+        the device advertising a vendor-class interface
+        (class/subclass/protocol = 0xFF). The Nostr Signer app must be
+        open on Prime at pair time; if no device shows up, open the app
+        and unplug/replug.
+      </p>
+    </section>
+
+    <details>
+      <summary>Developer: simulator mode</summary>
+      <label class="row">
+        <input id="devMode" type="checkbox" />
+        Use WebSocket simulator instead of Passport Prime hardware
+      </label>
+      <p class="hint section-hint">
+        Connects to a local <code>signer</code> binary or the KeyOS hosted
+        simulator over WebSocket. Use this while iterating without flashing
+        hardware. When this is off, the extension talks to your paired
+        Passport Prime over USB.
+      </p>
+      <label for="url">Simulator WebSocket URL</label>
+      <input id="url" type="text" placeholder="ws://127.0.0.1:9876" />
+    </details>
+
+    <details>
+      <summary>Troubleshooting</summary>
+      <p class="hint section-hint">
+        Clears every paired USB device and the remembered key selection —
+        leaves the popup looking fresh. Use before a demo, after handing the
+        device off, or if pairing gets stuck.
+      </p>
+      <button id="forget-ports" type="button">Reset extension state</button>
+      <span id="forget-status" class="saved"></span>
+    </details>
+
+    <span id="saved-indicator" class="saved">Saved ✓</span>
+
+    <script src="options.js" type="module"></script>
+  </body>
+</html>

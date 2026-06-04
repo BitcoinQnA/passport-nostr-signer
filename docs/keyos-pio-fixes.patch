@@ -1,0 +1,451 @@
+diff --git a/imports/atsama5d27/src/udphs.rs b/imports/atsama5d27/src/udphs.rs
+index 69e6353..18d2103 100644
+--- a/imports/atsama5d27/src/udphs.rs
++++ b/imports/atsama5d27/src/udphs.rs
+@@ -243,6 +243,19 @@ impl UsbDevice {
+         self.csr.wo(IEN, ien);
+     }
+ 
++    /// Mask a peripheral endpoint's top-level interrupt. Used from the IRQ
++    /// handler on PIO endpoints to prevent an interrupt storm: the per-
++    /// endpoint `received_out` / `transmission_complete` status flags are
++    /// only cleared later (in user-space, after the message is processed),
++    /// and without masking the top-level bit the UDPHS re-fires the IRQ
++    /// immediately on every return, starving the server process.
++    #[inline]
++    pub fn disable_endpoint_interrupt(&mut self, ep_number: usize) {
++        assert!(ep_number < 16);
++        let ien = self.csr.r(IEN) & !(1 << (ep_number + 8));
++        self.csr.wo(IEN, ien);
++    }
++
+     #[inline]
+     pub fn enable_dma_interrupt(&mut self, ep_number: usize) {
+         assert!(ep_number < 8);
+diff --git a/os/usb/manifest.toml b/os/usb/manifest.toml
+index d8d9dec..5e55186 100644
+--- a/os/usb/manifest.toml
++++ b/os/usb/manifest.toml
+@@ -15,6 +15,7 @@ EndOfReset = { id = 16, type = "scalar" }
+ Ep0RxComplete = { id = 19, type = "scalar" }
+ Ep0TxComplete = { id = 18, type = "scalar" }
+ DmaInterrupt = { id = 20, type = "scalar" }
++PioEndpointInterrupt = { id = 21, type = "scalar" }
+ 
+ [permissions]
+ template = ["gpio"]
+diff --git a/os/usb/src/device/implementation.rs b/os/usb/src/device/implementation.rs
+index e362afb..cb577c6 100644
+--- a/os/usb/src/device/implementation.rs
++++ b/os/usb/src/device/implementation.rs
+@@ -1,7 +1,7 @@
+ // SPDX-FileCopyrightText: 2024 Foundation Devices, Inc. <hello@foundation.xyz>
+ // SPDX-License-Identifier: GPL-3.0-or-later
+ 
+-use std::collections::BTreeMap;
++use std::collections::{BTreeMap, VecDeque};
+ 
+ use atsama5d27::{
+     pmc::PeripheralId,
+@@ -72,10 +72,31 @@ struct RuntimeEndpointData {
+     properties: EndpointProperties,
+     ongoing_read: Option<DeferredLendMut<ReadEndpoint>>,
+     ongoing_write: Option<DeferredLendMut<WriteEndpoint>>,
++    // Small per-endpoint inbound queue for PIO OUT endpoints. PIO RX
++    // arrives packet-by-packet; if a host->device packet lands between
++    // two user-space `read_buf` calls (i.e. reader is processing the
++    // previous chunk), there is no pending `ongoing_read` to copy into.
++    // Without this queue those bytes were dropped, which silently
++    // truncated any multi-packet payload (e.g. JSON requests that spill
++    // past one bulk packet). Bounded so a runaway host can't OOM us.
++    rx_queue: VecDeque<Vec<u8>>,
+ }
+ 
++const RX_QUEUE_MAX_PACKETS: usize = 8;
++
+ const EPT0_MAX_PACKET_SIZE: usize = 0x40;
+ 
++// SAMA5D27 UDPHS has 16 endpoints total (ep0 + 15 peripheral). Only
++// endpoints 1..=7 have DMA channels; endpoints 8..=15 transfer data
++// via PIO (programmed I/O through the endpoint FIFO). The allocator in
++// `register_interface` fills DMA slots first and only falls back to PIO
++// slots when DMA is exhausted.
++const MAX_DMA_ENDPOINT: u8 = 7;
++const MAX_USB_ENDPOINT: u8 = 15;
++
++#[inline]
++fn is_pio_endpoint(ep: u8) -> bool { ep > MAX_DMA_ENDPOINT }
++
+ const MANUFACTURER: &str = "Foundation Devices, Inc.";
+ const PRODUCT: &str = "Passport Prime";
+ 
+@@ -224,7 +245,11 @@ impl UsbDeviceServer {
+ 
+     fn configure(&mut self) {
+         for (ept_num, ept_data) in &mut self.endpoints {
+-            log::debug!("Setting up EP{ept_num} as {:?}", ept_data.properties);
++            log::debug!(
++                "Setting up EP{ept_num} as {:?} ({})",
++                ept_data.properties,
++                if is_pio_endpoint(*ept_num) { "PIO" } else { "DMA" }
++            );
+             self.hw.reset_endpoint(*ept_num as usize);
+             let ep = self.hw.endpoint(*ept_num as usize);
+ 
+@@ -239,9 +264,25 @@ impl UsbDeviceServer {
+ 
+             let mut control = EndpointControl(0);
+             control.set_enable(true);
+-            control.set_auto_valid(true);
+-            ep.ctl_enable.set(control);
+-            self.hw.enable_dma_interrupt(*ept_num as usize);
++
++            if is_pio_endpoint(*ept_num) {
++                // PIO: no auto-valid (we set `tx_packet_ready` manually
++                // after writing the bank). Enable the direction-specific
++                // endpoint-level interrupt so `udphs_irq_handler` wakes
++                // us up per packet.
++                match ept_data.properties.ep_direction {
++                    EndpointDirection::Out => control.set_received_out_interrupt(true),
++                    EndpointDirection::In => control.set_transmission_complete_interrupt(true),
++                }
++                ep.ctl_enable.set(control);
++                self.hw.enable_endpoint_interrupt(*ept_num as usize);
++            } else {
++                // DMA: controller drives validation automatically and we
++                // fire on `enable_dma_interrupt` per DMA channel.
++                control.set_auto_valid(true);
++                ep.ctl_enable.set(control);
++                self.hw.enable_dma_interrupt(*ept_num as usize);
++            }
+         }
+         self.is_configured = true;
+ 
+@@ -280,6 +321,9 @@ impl UsbDeviceServer {
+             if let Some(mut write) = ep.ongoing_write.take() {
+                 write.set_response(Err(UsbError::HostDisconnected));
+             }
++            // Any packets we queued before the host vanished are stale;
++            // the next connect session will talk to a fresh tty.
++            ep.rx_queue.clear();
+         }
+     }
+ 
+@@ -307,7 +351,21 @@ impl UsbDeviceServer {
+     }
+ 
+     // Returns the registered endpoint numbers.
+-    fn register_interface(&mut self, msg: RegisterInterface) -> Vec<u8> {
++    fn register_interface(&mut self, msg: RegisterInterface) -> Result<Vec<u8>, UsbError> {
++        // SAMA5D27 UDPHS supports endpoints 1..=15 (ep0 is control).
++        // Endpoints 1..=7 have DMA channels; 8..=15 are PIO-only. The
++        // allocator below assigns numbers monotonically, so DMA slots
++        // fill first. Reject only if we'd exceed the hardware maximum
++        // of 15 peripheral endpoints.
++        if self.endpoints.len() + msg.endpoints.len() > MAX_USB_ENDPOINT as usize {
++            log::error!(
++                "register_interface rejected: {} endpoints requested, {} free (hw limit)",
++                msg.endpoints.len(),
++                (MAX_USB_ENDPOINT as usize).saturating_sub(self.endpoints.len())
++            );
++            return Err(UsbError::InvalidParameter);
++        }
++
+         let mut descriptors = Vec::new();
+ 
+         if msg.associated_interface_count > 0 {
+@@ -351,12 +409,17 @@ impl UsbDeviceServer {
+             ]);
+             self.endpoints.insert(
+                 ep_number,
+-                RuntimeEndpointData { properties, ongoing_read: None, ongoing_write: None },
++                RuntimeEndpointData {
++                    properties,
++                    ongoing_read: None,
++                    ongoing_write: None,
++                    rx_queue: VecDeque::new(),
++                },
+             );
+             result.push(ep_number);
+         }
+         self.interfaces.push(RegisteredInterface { descriptors });
+-        result
++        Ok(result)
+     }
+ 
+     fn recalculate_bos_descriptor(&mut self) {
+@@ -411,11 +474,30 @@ impl ArchiveHandler<RegisterInterface> for UsbDeviceServer {
+         _context: &mut server::ServerContext<Self>,
+     ) -> Result<Vec<u8>, UsbError> {
+         log::info!("Registering interface class {} with {} endpoints", msg.if_class, msg.endpoints.len());
+-        let result = self.register_interface(msg);
++        let was_enabled = self.enabled;
++        let result = self.register_interface(msg)?;
+         self.recalculate_config_descriptor();
+         self.recalculate_bos_descriptor();
+         self.update_hw_enabled_state();
+ 
++        // If USB was already enumerated to the host when this interface
++        // was added (e.g. a GUI app registered its HID after boot-time
++        // services), the host still has the OLD config descriptor and
++        // will never see the new interface. Force a detach/attach cycle
++        // so the host re-runs GET_DESCRIPTOR and picks up the update.
++        if was_enabled && self.enabled {
++            log::info!(
++                "Cycling USB after late interface registration so host re-enumerates with new descriptor"
++            );
++            self.hw.set_enabled(false);
++            self.send_disconnected();
++            // Windows/macOS need a visible gap between detach and attach
++            // for the re-enumeration to stick.
++            std::thread::sleep(std::time::Duration::from_millis(100));
++            self.hw.set_enabled(true);
++            self.is_configured = false;
++        }
++
+         Ok(result)
+     }
+ }
+@@ -504,7 +586,26 @@ impl DeferredLendMutHandler<ReadEndpoint> for UsbDeviceServer {
+         }
+         log::trace!("Reading {} bytes on EP{}", msg.body().length, msg.body().endpoint);
+         xous::flush_cache(msg.body().buf, xous::CacheOperation::Invalidate).ok();
+-        self.start_dma(endpoint_number, msg.body().buf.as_ptr(), msg.body().length);
++        if is_pio_endpoint(endpoint_number) {
++            // PIO RX: drain a queued packet synchronously if one landed
++            // between the previous read completing and this one being
++            // posted. Otherwise stash the deferred msg — the IRQ handler
++            // will copy data into `msg.body().buf` and resolve it.
++            if let Some(ep) = self.endpoints.get_mut(&endpoint_number) {
++                if let Some(queued) = ep.rx_queue.pop_front() {
++                    let capacity = msg.body().length as usize;
++                    let to_copy = queued.len().min(capacity);
++                    let dst = unsafe {
++                        std::slice::from_raw_parts_mut(msg.body().buf.as_ptr() as *mut u8, to_copy)
++                    };
++                    dst.copy_from_slice(&queued[..to_copy]);
++                    msg.set_response(Ok(to_copy));
++                    return;
++                }
++            }
++        } else {
++            self.start_dma(endpoint_number, msg.body().buf.as_ptr(), msg.body().length);
++        }
+         self.endpoints.get_mut(&endpoint_number).unwrap().ongoing_read = Some(msg);
+     }
+ 
+@@ -534,9 +635,41 @@ impl DeferredLendMutHandler<WriteEndpoint> for UsbDeviceServer {
+             msg.set_response(Err(UsbError::WrongDirection));
+             return;
+         }
+-        log::trace!("Writing {} bytes on EP{}", msg.body().length, msg.body().endpoint);
++        log::trace!(
++            "Writing {} bytes on {}EP{}",
++            msg.body().length,
++            if is_pio_endpoint(endpoint_number) { "PIO " } else { "" },
++            msg.body().endpoint,
++        );
+         xous::flush_cache(msg.body().buf, xous::CacheOperation::Clean).ok();
+-        self.start_dma(endpoint_number, msg.body().buf.as_ptr(), msg.body().length);
++        if is_pio_endpoint(endpoint_number) {
++            // Only single-packet writes are supported on PIO endpoints
++            // today. HID/interrupt transport uses <= 64-byte reports so
++            // this is the common case; larger writes would need packet
++            // chaining across multiple TXCOMPL IRQs (not yet wired up).
++            let max_packet = endpoint.properties.max_packet_len;
++            let length = msg.body().length;
++            if length > max_packet {
++                log::error!(
++                    "PIO write of {} bytes on EP{} exceeds max_packet_len {}; chaining not implemented",
++                    length, endpoint_number, max_packet
++                );
++                msg.set_response(Err(UsbError::DataTooLarge));
++                return;
++            }
++            // Safety: buf is a client-lent MemoryRange valid for `length`
++            // bytes for the duration of this handler's deferred reply.
++            let src = unsafe {
++                std::slice::from_raw_parts(msg.body().buf.as_ptr(), length as usize)
++            };
++            self.hw.write_endpoint_memory(endpoint_number as usize, 0, src);
++            let ep_hw = self.hw.endpoint(endpoint_number as usize);
++            let mut status = EndpointStatus(0);
++            status.set_tx_packet_ready(true);
++            ep_hw.status_set.set(status);
++        } else {
++            self.start_dma(endpoint_number, msg.body().buf.as_ptr(), msg.body().length);
++        }
+         self.endpoints.get_mut(&endpoint_number).unwrap().ongoing_write = Some(msg);
+     }
+ 
+@@ -747,6 +880,113 @@ impl ScalarHandler<DmaInterrupt> for UsbDeviceServer {
+     }
+ }
+ 
++impl ScalarHandler<PioEndpointInterrupt> for UsbDeviceServer {
++    fn handle(
++        &mut self,
++        msg: PioEndpointInterrupt,
++        sender: xous::PID,
++        _context: &mut server::ServerContext<Self>,
++    ) {
++        if sender != xous::current_pid().unwrap() {
++            return;
++        }
++        let ep_num = msg.endpoint;
++        let status = EndpointStatus(msg.status_raw);
++        log::trace!(
++            "PIO IRQ EP{ep_num}: rx_out={} tx_compl={} tx_ready={} byte_count={} raw=0x{:08x}",
++            status.received_out(),
++            status.transmission_complete(),
++            status.tx_packet_ready(),
++            status.byte_count(),
++            msg.status_raw,
++        );
++
++        // Copy client buffer pointer / length before mutably re-borrowing self.
++        let Some(endpoint) = self.endpoints.get(&ep_num) else {
++            log::warn!("PIO IRQ on unregistered EP{ep_num}; ignoring");
++            return;
++        };
++        let is_out = endpoint.properties.ep_direction == EndpointDirection::Out;
++
++        if is_out {
++            // Host→device packet available. If a client is waiting, copy
++            // data out of the bank and resolve. If not, drop the packet
++            // to unblock the endpoint.
++            let byte_count = status.byte_count() as usize;
++            let ep_hw = self.hw.endpoint(ep_num as usize);
++            let mut clear = EndpointStatus(0);
++            clear.set_received_out(true);
++
++            if status.received_out() {
++                let ongoing = self.endpoints.get_mut(&ep_num).and_then(|e| e.ongoing_read.take());
++                match ongoing {
++                    Some(mut read) => {
++                        let capacity = read.body().length as usize;
++                        let to_copy = byte_count.min(capacity);
++                        let dst = unsafe {
++                            std::slice::from_raw_parts_mut(read.body().buf.as_ptr() as *mut u8, to_copy)
++                        };
++                        self.hw.read_endpoint_memory(ep_num as usize, 0, dst);
++                        // Free the bank for the next packet.
++                        self.hw.endpoint(ep_num as usize).status_clr.set(clear);
++                        read.set_response(Ok(to_copy));
++                    }
++                    None => {
++                        // No user-space reader is ready; stash this packet
++                        // on the endpoint's queue so the next `read_buf`
++                        // can drain it instead of the bytes being lost.
++                        let ep_entry = self.endpoints.get_mut(&ep_num);
++                        let queue_full = ep_entry
++                            .as_ref()
++                            .map(|e| e.rx_queue.len() >= RX_QUEUE_MAX_PACKETS)
++                            .unwrap_or(true);
++                        if queue_full {
++                            log::warn!(
++                                "PIO EP{ep_num} RXOUT: queue full ({RX_QUEUE_MAX_PACKETS} packets); \
++                                 dropping {byte_count} bytes"
++                            );
++                        } else {
++                            let mut buf = vec![0u8; byte_count];
++                            self.hw.read_endpoint_memory(ep_num as usize, 0, &mut buf);
++                            if let Some(ep) = ep_entry {
++                                ep.rx_queue.push_back(buf);
++                            }
++                        }
++                        self.hw.endpoint(ep_num as usize).status_clr.set(clear);
++                    }
++                }
++            } else {
++                // Spurious / unrelated event — just clear whatever's set.
++                ep_hw.status_clr.set(status);
++            }
++        } else {
++            // Device→host packet transmitted (TXCOMPL). Resolve the
++            // pending write and clear the status so the next write can
++            // fire.
++            if status.transmission_complete() {
++                let mut clear = EndpointStatus(0);
++                clear.set_transmmission_complete(true);
++                self.hw.endpoint(ep_num as usize).status_clr.set(clear);
++                if let Some(mut write) =
++                    self.endpoints.get_mut(&ep_num).and_then(|e| e.ongoing_write.take())
++                {
++                    let length = write.body().length as usize;
++                    write.set_response(Ok(length));
++                }
++            } else {
++                // Clear any non-TXCOMPL bits to avoid re-interrupting.
++                self.hw.endpoint(ep_num as usize).status_clr.set(status);
++            }
++        }
++
++        // The IRQ handler masked this endpoint's top-level interrupt to
++        // avoid a storm while the per-endpoint status bits were still
++        // latched. We've now cleared them above, so it is safe to
++        // re-arm the endpoint for the next packet.
++        self.hw.enable_endpoint_interrupt(ep_num as usize);
++    }
++}
++
+ impl ScalarEventHandler<IrqMessage> for UsbDeviceServer {
+     fn handle(&mut self, msg: IrqMessage, _sender: xous::PID, _context: &mut server::ServerContext<Self>) {
+         log::trace!("GPIO IRQ: {msg:?}");
+@@ -851,5 +1091,31 @@ fn udphs_irq_handler(_irq_no: usize, arg: *mut usize) {
+             context.conn.send_scalar_nowait(DmaInterrupt { endpoint: dma_endpoint as u8, status }).ok();
+         }
+     }
++    // PIO endpoints 8..=15 fire the endpoint-level interrupt instead of
++    // a DMA channel interrupt. Hand the raw endpoint status to the main
++    // server loop; it copies bytes in/out of the endpoint FIFO and
++    // resolves the pending read/write there.
++    //
++    // The per-endpoint status bits (received_out / transmission_complete)
++    // can only be cleared *after* the message handler has read the FIFO,
++    // which happens in user-space milliseconds later. We therefore mask
++    // this endpoint's top-level interrupt bit here; the handler re-enables
++    // it after clearing the status. Without this mask, UDPHS re-asserts
++    // the IRQ immediately on every return and the server process is
++    // starved until the system watchdog reboots — the observed "KeyOS
++    // restarted" symptom on the first packet to a PIO endpoint.
++    for pio_endpoint in ((MAX_DMA_ENDPOINT as usize) + 1)..=(MAX_USB_ENDPOINT as usize) {
++        if interrupts.endpoint(pio_endpoint) != 0 {
++            let status = context.hw.endpoint(pio_endpoint).status.get();
++            context.hw.disable_endpoint_interrupt(pio_endpoint);
++            context
++                .conn
++                .send_scalar_nowait(PioEndpointInterrupt {
++                    endpoint: pio_endpoint as u8,
++                    status_raw: status.0,
++                })
++                .ok();
++        }
++    }
+     context.hw.clear_interrupt(interrupts);
+ }
+diff --git a/os/usb/src/device/messages.rs b/os/usb/src/device/messages.rs
+index 6b6c13c..1030395 100644
+--- a/os/usb/src/device/messages.rs
++++ b/os/usb/src/device/messages.rs
+@@ -27,3 +27,20 @@ impl AsScalar<2> for DmaInterrupt {
+ impl FromScalar<2> for DmaInterrupt {
+     fn from_scalar(value: [u32; 2]) -> Self { Self { endpoint: value[0] as u8, status: DmaStatus(value[1]) } }
+ }
++
++// Endpoint-level interrupt for non-DMA (PIO) endpoints 8..=15. The
++// UDPHS only has 8 DMA channels but 16 endpoints; overflow endpoints
++// use endpoint-status interrupts instead of DMA interrupts.
++#[derive(Debug, server::Message, Clone)]
++pub struct PioEndpointInterrupt {
++    pub endpoint: u8,
++    pub status_raw: u32,
++}
++
++impl AsScalar<2> for PioEndpointInterrupt {
++    fn as_scalar(&self) -> [u32; 2] { [self.endpoint as u32, self.status_raw] }
++}
++
++impl FromScalar<2> for PioEndpointInterrupt {
++    fn from_scalar(value: [u32; 2]) -> Self { Self { endpoint: value[0] as u8, status_raw: value[1] } }
++}

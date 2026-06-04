@@ -1,0 +1,92 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { HeadingLg, HeadingMd, HeadingSm, TextMd, TextSm, Button, BasePage } from "@ui/widgets.slint";
+import { Palette, Size } from "@ui/theme.slint";
+import { Callbacks } from "../../callbacks.slint";
+import { Navigate } from "../../gen/navigate.slint";
+
+component InfoRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+
+    spacing: 8px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+
+    HeadingSm {
+        text: label;
+        color: Palette.content-secondary;
+        min-width: 72px;
+    }
+    TextMd {
+        text: value;
+        color: Palette.content-primary;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
+    }
+}
+
+export component ApprovePagePage inherits BasePage {
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        HeadingLg {
+            text: "Approval required";
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            background: Palette.background-primary-alternative;
+            border-radius: 12px;
+            VerticalLayout {
+                padding: 12px;
+                InfoRow {
+                    label: "Origin";
+                    value: Callbacks.approval.origin == "" ? "(no origin)" : Callbacks.approval.origin;
+                }
+                InfoRow {
+                    label: "Key";
+                    value: Callbacks.approval.key-label + "  " + Callbacks.approval.key-short;
+                }
+                InfoRow {
+                    label: "Kind";
+                    value: Callbacks.approval.kind-label;
+                }
+                InfoRow {
+                    label: "Tags";
+                    value: Callbacks.approval.tag-count == 1 ? "1 tag" : Callbacks.approval.tag-count + " tags";
+                }
+                InfoRow {
+                    label: "Content";
+                    value: Callbacks.approval.content-preview == "" ? "(empty)" : Callbacks.approval.content-preview;
+                }
+            }
+        }
+
+        Rectangle { vertical-stretch: 1; }
+
+        HorizontalLayout {
+            spacing: 12px;
+            Button {
+                label: "Reject";
+                importance: secondary;
+                horizontal-stretch: 1;
+                clicked => {
+                    Callbacks.reject();
+                    Navigate.backward();
+                }
+            }
+            Button {
+                label: "Approve";
+                importance: primary;
+                horizontal-stretch: 1;
+                clicked => {
+                    Callbacks.approve();
+                    Navigate.backward();
+                }
+            }
+        }
+    }
+}

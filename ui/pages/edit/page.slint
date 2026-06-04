@@ -1,0 +1,213 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { AppHeader, Button, CardColorPicker, IconButton, TitledInput, TextSm,
+         BasePage, PageBody, ContentSection, ButtonSection, ErrorModal,
+         ConfirmationModal, ShowHide } from "@ui/widgets.slint";
+import { Importance, Palette, Size } from "@ui/theme.slint";
+import { Callbacks } from "../../callbacks.slint";
+import { CardPageVersion, EditPageVersion } from "@ui/pages.slint";
+import { EditPageProps } from "./props.slint";
+import { Navigate, Animate } from "../../gen/navigate.slint";
+
+// Drop the current nav stack (which is Main → Details → Edit here) and
+// land fresh on the requested main page. Used after Save/Archive/Delete/
+// Restore so the user sees the updated card list instead of a stale
+// details page.
+
+
+export component EditPagePage inherits Rectangle {
+    in property <EditPageProps> props;
+
+    property <string> new-label: Callbacks.editing-label;
+    property <int>    new-color: Callbacks.editing-color;
+    property <string> account-text: "0";
+    property <bool>   show-delete-confirm: false;
+
+    pure function account-or-zero() -> int {
+        if (account-text == "") { return 0; }
+        return account-text.to-float();
+    }
+
+    init => {
+        new-label = Callbacks.editing-label;
+        new-color = Callbacks.editing-color;
+        account-text = "\{Callbacks.live-count + Callbacks.archived-count}";
+        Callbacks.editing-error = "";
+    }
+
+    function title-for-version() -> string {
+        if (props.version == EditPageVersion.add) { return "Add key"; }
+        if (props.version == EditPageVersion.edit) { return "Edit key"; }
+        return "Archived key";
+    }
+
+    BasePage {
+        VerticalLayout {
+            AppHeader {
+                title: title-for-version();
+                title-color: Palette.content-primary;
+                side-padding: Size.sz6;
+
+                IconButton {
+                    icon: "chevron-left";
+                    size: Size.sz8;
+                    importance: Importance.normal;
+                    clicked => { Navigate.backward(); }
+                }
+            }
+
+            PageBody {
+                ContentSection {
+                    spacing: Size.sz8;
+
+                    label-input := TitledInput {
+                        title: "Label";
+                        placeholder: "Personal";
+                        text: new-label;
+                        caps-mode: sentences;
+                        enabled: props.version != EditPageVersion.archive;
+                        has-notice: Callbacks.editing-error != "";
+                        message: Callbacks.editing-error;
+                        edited(text) => {
+                            new-label = text;
+                            // Clear the error as the user types; the real
+                            // validation happens when they tap a save
+                            // button, matching the brief.
+                            if (Callbacks.editing-error != "") {
+                                Callbacks.editing-error = "";
+                            }
+                        }
+                    }
+
+                    if props.version != EditPageVersion.archive: CardColorPicker {
+                        selected-index: new-color;
+                        title: "Color";
+                        changed(index) => { new-color = index; }
+                    }
+
+                    // ----- Advanced options (add mode, Generate path) -----
+                    // Lets power users pick the NIP-06 account index so we
+                    // can derive a second identity from the same device seed
+                    // (m/44'/1237'/{account}'/0/0). Defaults to 0.
+                    if props.version == EditPageVersion.add: ShowHide {
+                        text: "Advanced options";
+
+                        TitledInput {
+                            title: "NIP-06 account index";
+                            text: account-text;
+                            input-type: InputType.number;
+                            bounded-number: true;
+                            minimum: "0";
+                            maximum: "2147483647";
+                            message: "Different accounts derive independent keys from the same seed. Vault’s nostr keys start at 0.";
+                            has-notice: false;
+
+                            edited(text) => {
+                                account-text = text;
+                            }
+                        }
+                    }
+
+                    if props.version == EditPageVersion.archive: VerticalLayout {
+                        padding-left: Size.sz4;
+                        spacing: Size.sz2;
+                        TextSm {
+                            text: "npub";
+                            color: Palette.content-tertiary;
+                        }
+                        TextSm {
+                            text: Callbacks.editing-npub;
+                            color: Palette.content-primary;
+                            wrap: char-wrap;
+                        }
+                    }
+                }
+
+                // ---- Button section, varies by version --------------------
+                if props.version == EditPageVersion.add: ButtonSection {
+                    Button {
+                        icon: "";
+                        label: "Generate New Key";
+                        importance: Importance.primary;
+                        clicked => {
+                            Callbacks.save-new(new-label, new-color, "generate", account-or-zero());
+                        }
+                    }
+                    Button {
+                        icon: "";
+                        label: "Import with QR";
+                        importance: Importance.secondary;
+                        clicked => {
+                            // QR doesn't care about the account index.
+                            Callbacks.save-new(new-label, new-color, "qr", 0);
+                        }
+                    }
+                }
+
+                if props.version == EditPageVersion.edit: ButtonSection {
+                    Button {
+                        icon: "";
+                        label: "Save";
+                        importance: Importance.primary;
+                        clicked => {
+                            Callbacks.edit-save(Callbacks.editing-uuid, new-label, new-color);
+                        }
+                    }
+                    Button {
+                        icon: "archive";
+                        label: "Archive key";
+                        importance: Importance.secondary;
+                        clicked => {
+                            Callbacks.archive(Callbacks.editing-uuid);
+                            Navigate.main-page({ version: CardPageVersion.main }, {
+                                replace: true, animate: Animate.None
+                            });
+                        }
+                    }
+                }
+
+                if props.version == EditPageVersion.archive: ButtonSection {
+                    Button {
+                        icon: "export";
+                        label: "Restore";
+                        importance: Importance.primary;
+                        clicked => {
+                            Callbacks.restore(Callbacks.editing-uuid);
+                            Navigate.main-page({ version: CardPageVersion.archive }, {
+                                replace: true, animate: Animate.None
+                            });
+                        }
+                    }
+                    Button {
+                        icon: "";
+                        label: "Delete forever";
+                        importance: Importance.negative;
+                        clicked => {
+                            show-delete-confirm = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if show-delete-confirm: ConfirmationModal {
+        icon: "alert";
+        title: "Delete this key?";
+        text: "The nsec is sealed to this device and can't be recovered once removed. Archived keys are not backed up.";
+        cancel-button-label: "Cancel";
+        confirm-button-label: "Delete forever";
+        critical: true;
+
+        cancel-clicked => { show-delete-confirm = false; }
+
+        confirm-clicked => {
+            show-delete-confirm = false;
+            Callbacks.delete-forever(Callbacks.editing-uuid);
+            Navigate.main-page({ version: CardPageVersion.archive }, {
+                replace: true, animate: Animate.None
+            });
+        }
+    }
+}

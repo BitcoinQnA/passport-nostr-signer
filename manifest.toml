@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+appId = "0x1f8f092a30b7425273d9b15d5f3dd8c8"
+
+[appName]
+en = "Nostr Signer"
+
+[permissions]
+template = ["gui-app", "fs-generic"]
+"os/security" = ["GetAppSeed", "GetSeed"]
+"os/usbdev" = [
+    "RegisterCapability",
+    "RegisterSetupResponder",
+    "RegisterInterface",
+    "NumInterfaces",
+    "ReadEndpoint",
+    "WriteEndpoint",
+    "SetEndpointStalled",
+    "WaitForConnection",
+    "ResetController",
+]

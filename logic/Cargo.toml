@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Nostr Signer logic crates — vendored into this POC folder so KeyOS-nostr is
+# self-contained (no external sibling repo needed to build). This is its own
+# workspace, excluded from the KeyOS workspace; the app path-depends into it.
+[workspace]
+resolver = "2"
+members = [
+    "nostr-core",
+    "keystore",
+    "protocol",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# Nostr cryptography
+k256 = { version = "0.13", default-features = false, features = ["schnorr", "ecdh", "alloc"] }
+sha2 = { version = "0.10", default-features = false }
+hmac = { version = "0.12", default-features = false }
+hkdf = { version = "0.12", default-features = false }
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+bip39 = { version = "2.0", default-features = false, features = ["alloc"] }
+chacha20 = { version = "0.9", default-features = false }
+aes = { version = "0.8", default-features = false }
+cbc = { version = "0.1", default-features = false, features = ["alloc"] }
+cipher = { version = "0.4", default-features = false, features = ["block-padding"] }
+aes-gcm = { version = "0.10", default-features = false, features = ["alloc", "aes"] }
+
+# Encoding
+bech32 = { version = "0.11", default-features = false, features = ["alloc"] }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+
+# Serialization
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
+
+# Errors & utilities
+thiserror = "1"
+zeroize = { version = "1.7", features = ["derive"] }
+rand_core = { version = "0.6", default-features = false }
+getrandom = "0.2"
+
+# Internal (relative to this folder)
+nostr-core = { path = "nostr-core" }
+keystore = { path = "keystore" }
+protocol = { path = "protocol" }

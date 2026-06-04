@@ -1,0 +1,86 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+export struct ApprovalState {
+    active: bool,
+    action: string,
+    origin: string,
+    key-label: string,
+    key-short: string,
+    kind: int,
+    kind-label: string,
+    tag-count: int,
+    content-preview: string,
+}
+
+export struct StoredKey {
+    uuid: string,
+    label: string,
+    npub-short: string,
+    npub-full: string,
+    color: int,
+    archived: bool,
+}
+
+export global Callbacks {
+    // -- Approval state ------------------------------------------------------
+    in-out property <ApprovalState> approval: {
+        active: false,
+        action: "",
+        origin: "",
+        key-label: "",
+        key-short: "",
+        kind: 0,
+        kind-label: "",
+        tag-count: 0,
+        content-preview: "",
+    };
+    callback approve();
+    callback reject();
+
+    // -- Identity store ------------------------------------------------------
+    // Full list of every stored identity (both live and archived). The
+    // main page filters by the `archive-mode` flag.
+    in-out property <[StoredKey]> keys: [];
+    // Aggregated counts, updated from Rust whenever `keys` changes.
+    // Slint has no fold/filter, so Rust does the arithmetic.
+    in-out property <int> live-count: 0;
+    in-out property <int> archived-count: 0;
+    in-out property <string> selected-uuid: "";
+    in-out property <bool> archive-mode: false;
+
+    // Currently-editing identity, populated when the user navigates into
+    // the edit page.
+    in-out property <string> editing-uuid: "";
+    in-out property <string> editing-label: "";
+    in-out property <string> editing-npub: "";
+    in-out property <int>    editing-color: 3; // default: purple (picker index 3)
+    in-out property <bool>   editing-archived: false;
+    in-out property <string> editing-error: "";
+
+    // Status banner on the main page.
+    in-out property <string> server-status: "starting ws://127.0.0.1:9876";
+
+    // -- UI → Rust ----------------------------------------------------------
+    callback select-key(string /* uuid hex */);
+
+    // Create a new identity. method is "generate" or "qr". For "generate",
+    // `account` picks the NIP-06 account index (m/44'/1237'/{account}'/0/0);
+    // ignored for "qr".
+    callback save-new(string /* label */, int /* color */, string /* method */, int /* account */);
+
+    // Update label/color of an existing identity.
+    callback edit-save(string /* uuid */, string /* label */, int /* color */);
+
+    // Archive / restore / delete.
+    callback archive(string /* uuid */);
+    callback restore(string /* uuid */);
+    callback delete-forever(string /* uuid */);
+
+    // Decrypt & return the bech32 nsec for a stored identity. Empty string
+    // on failure (logged to the serial console).
+    callback reveal-nsec(string /* uuid */) -> string;
+
+    // Validate a proposed label. Returns an error message, or "" if OK.
+    pure callback validate-label(string /* label */) -> string;
+}
