@@ -113,5 +113,5 @@ bundle over USB without a full firmware rebuild.
 - Full signed device image + sideload via the `foundation` CLI (pending CLI
   `build`/`sideload`).
 - Wire `i18n/en.json` through the Slint pages (currently inline strings).
-- Production USB VID/PID assignment for the vendor-class interface (see
+- Production USB VID/PID assignment for the vendor-class WebUSB interface (see
   [`docs/PROTOCOL.md`](docs/PROTOCOL.md)).

@@ -24,6 +24,7 @@ const SOURCE = "prime-nostr-signer";
 // Forward inpage request → service worker; reply the response back as a
 // matching window message.
 window.addEventListener("message", async (ev) => {
+  if (ev.source !== window) return;
   const d = ev.data;
   if (!d || d.source !== SOURCE || d.kind !== "request") return;
   try {
@@ -40,7 +41,7 @@ window.addEventListener("message", async (ev) => {
         result: resp?.result,
         error: resp?.error,
       },
-      "*",
+      window.location.origin,
     );
   } catch (e) {
     window.postMessage(
@@ -50,7 +51,7 @@ window.addEventListener("message", async (ev) => {
         kind: "response",
         error: { code: 99, message: String(e && e.message ? e.message : e) },
       },
-      "*",
+      window.location.origin,
     );
   }
 });

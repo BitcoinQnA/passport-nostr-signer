@@ -122,7 +122,9 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    pub fn as_i32(self) -> i32 { self as i32 }
+    pub fn as_i32(self) -> i32 {
+        self as i32
+    }
 }
 
 /// Public-facing key listing entry.
@@ -137,14 +139,20 @@ pub struct KeyInfo {
 
 impl Response {
     pub fn ok(id: impl Into<String>, result: serde_json::Value) -> Self {
-        Self { id: id.into(), body: ResponseBody::Ok { result } }
+        Self {
+            id: id.into(),
+            body: ResponseBody::Ok { result },
+        }
     }
 
     pub fn err(id: impl Into<String>, code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             body: ResponseBody::Err {
-                error: ErrorPayload { code: code.as_i32(), message: message.into() },
+                error: ErrorPayload {
+                    code: code.as_i32(),
+                    message: message.into(),
+                },
             },
         }
     }
@@ -156,7 +164,10 @@ mod tests {
 
     #[test]
     fn request_ping_roundtrip() {
-        let r = Request { id: "1".into(), method: Method::Ping };
+        let r = Request {
+            id: "1".into(),
+            method: Method::Ping,
+        };
         let j = serde_json::to_string(&r).unwrap();
         assert!(j.contains("\"method\":\"ping\""));
         let back: Request = serde_json::from_str(&j).unwrap();
@@ -201,7 +212,8 @@ mod tests {
         // the server must also tolerate explicit `null` for robustness.
         let r: Request = serde_json::from_str(r#"{"id":"a","method":"ping"}"#).unwrap();
         assert!(matches!(r.method, Method::Ping));
-        let r: Request = serde_json::from_str(r#"{"id":"a","method":"ping","params":null}"#).unwrap();
+        let r: Request =
+            serde_json::from_str(r#"{"id":"a","method":"ping","params":null}"#).unwrap();
         assert!(matches!(r.method, Method::Ping));
         let r: Request = serde_json::from_str(r#"{"id":"a","method":"list_keys"}"#).unwrap();
         assert!(matches!(r.method, Method::ListKeys));

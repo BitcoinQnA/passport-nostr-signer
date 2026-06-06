@@ -2,7 +2,7 @@
   "app.name": "Nostr Signer",
   "main.tagline": "Sign events without your nsec ever leaving this device.",
   "main.createFirstKey": "Create your first Nostr key",
-  "main.generateNewKey": "Generate New Key",
+  "main.generateNewKey": "Derive From Seed",
   "main.importWithQr": "Import with QR",
   "main.addKey": "Add key",
   "main.newKey": "New Key",

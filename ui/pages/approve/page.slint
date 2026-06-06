@@ -48,18 +48,28 @@ export component ApprovePagePage inherits BasePage {
                 }
                 InfoRow {
                     label: "Key";
-                    value: Callbacks.approval.key-label + "  " + Callbacks.approval.key-short;
+                    value: Callbacks.approval.key-short == ""
+                        ? Callbacks.approval.key-label
+                        : Callbacks.approval.key-label + "  " + Callbacks.approval.key-short;
                 }
-                InfoRow {
+                if Callbacks.approval.peer-short != "": InfoRow {
+                    label: "Peer";
+                    value: Callbacks.approval.peer-short;
+                }
+                if Callbacks.approval.action == "sign_event": InfoRow {
                     label: "Kind";
                     value: Callbacks.approval.kind-label;
                 }
-                InfoRow {
+                if Callbacks.approval.action != "sign_event": InfoRow {
+                    label: "Operation";
+                    value: Callbacks.approval.kind-label;
+                }
+                if Callbacks.approval.action == "sign_event": InfoRow {
                     label: "Tags";
                     value: Callbacks.approval.tag-count == 1 ? "1 tag" : Callbacks.approval.tag-count + " tags";
                 }
                 InfoRow {
-                    label: "Content";
+                    label: Callbacks.approval.content-label;
                     value: Callbacks.approval.content-preview == "" ? "(empty)" : Callbacks.approval.content-preview;
                 }
             }

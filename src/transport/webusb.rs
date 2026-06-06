@@ -79,7 +79,10 @@ impl ServerMessages for SetupResponder {
 
     fn messages() -> &'static [server::MessageDef<Self>] {
         use server::MessageId;
-        &[(SetupPacketCallback::ID, server::handle_blocking_archive_message::<SetupPacketCallback, _>)]
+        &[(
+            SetupPacketCallback::ID,
+            server::handle_blocking_archive_message::<SetupPacketCallback, _>,
+        )]
     }
 }
 impl Server for SetupResponder {}
@@ -189,7 +192,9 @@ fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
     crate::transport::set_status("WebUSB: resetting USB");
     usb.reset_controller();
 
-    crate::transport::set_status(format!("WebUSB ready (EP out={ep_out_num}, in={ep_in_num})"));
+    crate::transport::set_status(format!(
+        "WebUSB ready (EP out={ep_out_num}, in={ep_in_num})"
+    ));
 
     let (payload_tx, payload_rx) = mpsc::channel::<Vec<u8>>();
 
@@ -205,9 +210,8 @@ fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
 
     while let Ok(payload) = payload_rx.recv() {
         log::trace!("webusb dispatcher: got {} byte payload", payload.len());
-        let response = slint_keyos_platform::futures_lite::future::block_on(dispatch(
-            &engine, &payload,
-        ));
+        let response =
+            slint_keyos_platform::futures_lite::future::block_on(dispatch(&engine, &payload));
         let mut response_bytes = match serde_json::to_vec(&response) {
             Ok(b) => b,
             Err(e) => {
@@ -216,7 +220,10 @@ fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
             }
         };
         response_bytes.push(b'\n');
-        log::trace!("webusb dispatcher: writing {} bytes to EP IN", response_bytes.len());
+        log::trace!(
+            "webusb dispatcher: writing {} bytes to EP IN",
+            response_bytes.len()
+        );
         for chunk in response_bytes.chunks(64) {
             write_buf.as_slice_mut::<u8>()[..chunk.len()].copy_from_slice(chunk);
             match ep_in.write_buf(write_buf, chunk.len()) {

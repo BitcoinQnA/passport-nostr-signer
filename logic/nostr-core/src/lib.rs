@@ -14,16 +14,16 @@
 //! Design: no KeyOS dependencies here. Everything is testable on host with
 //! `cargo test`.
 
-pub mod error;
-pub mod keys;
-pub mod event;
 pub mod bech32;
+pub mod error;
+pub mod event;
+pub mod keys;
 pub mod nip04;
-pub mod nip44;
 pub mod nip06;
+pub mod nip44;
 
 pub use error::Error;
-pub use keys::{PublicKey, SecretKey};
 pub use event::{Event, UnsignedEvent};
+pub use keys::{PublicKey, SecretKey};
 
 pub type Result<T> = core::result::Result<T, Error>;

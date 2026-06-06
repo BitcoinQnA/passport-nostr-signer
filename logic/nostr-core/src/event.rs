@@ -104,13 +104,18 @@ impl Event {
         }
         let vk = self.pubkey.verifying_key();
         let sig = Signature::try_from(&self.sig[..]).map_err(|_| Error::BadSignature)?;
-        vk.verify_prehash(&self.id, &sig).map_err(|_| Error::BadSignature)?;
+        vk.verify_prehash(&self.id, &sig)
+            .map_err(|_| Error::BadSignature)?;
         Ok(())
     }
 
-    pub fn to_json(&self) -> Result<String> { Ok(serde_json::to_string(self)?) }
+    pub fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(self)?)
+    }
 
-    pub fn from_json(s: &str) -> Result<Self> { Ok(serde_json::from_str(s)?) }
+    pub fn from_json(s: &str) -> Result<Self> {
+        Ok(serde_json::from_str(s)?)
+    }
 }
 
 // --- serde helpers for hex-encoded binary fields ----------------------------
@@ -173,10 +178,8 @@ mod tests {
     use super::*;
 
     fn sk() -> SecretKey {
-        SecretKey::from_hex(
-            "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
-        )
-        .unwrap()
+        SecretKey::from_hex("7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a")
+            .unwrap()
     }
 
     #[test]
@@ -264,7 +267,8 @@ mod tests {
                  e683494eb377a4eaefd2069afa53d74f7f7a538e1154af073a27bca8147539da",
             ),
         };
-        evt.verify().expect("BIP-340 sig must verify under prehash semantics");
+        evt.verify()
+            .expect("BIP-340 sig must verify under prehash semantics");
     }
 
     fn hex_to_arr32(s: &str) -> [u8; 32] {

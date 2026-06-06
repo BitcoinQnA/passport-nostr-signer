@@ -121,6 +121,71 @@ header {
 }
 .selected:empty { margin: 0; }
 
+.origins {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px 0;
+}
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-subtle);
+}
+
+.origin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.origin-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.origin {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.origin-method,
+.origin-note {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.origin-actions {
+  display: flex;
+  gap: 6px;
+}
+
+button.mini {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 7px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button.primary-mini {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
 ul#keys {
   list-style: none;
   padding: 0;

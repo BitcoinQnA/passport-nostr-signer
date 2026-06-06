@@ -20,31 +20,43 @@ fn encode(hrp_str: &'static str, data: &[u8]) -> Result<String> {
 fn decode(expected_hrp: &'static str, s: &str) -> Result<Vec<u8>> {
     let (hrp, data) = bech32::decode(s).map_err(|e| Error::Bech32(e.to_string()))?;
     if hrp.as_str() != expected_hrp {
-        return Err(Error::Bech32Hrp { expected: expected_hrp, got: hrp.as_str().to_string() });
+        return Err(Error::Bech32Hrp {
+            expected: expected_hrp,
+            got: hrp.as_str().to_string(),
+        });
     }
     Ok(data)
 }
 
-pub fn encode_nsec(sk: &SecretKey) -> Result<String> { encode(HRP_NSEC, sk.as_bytes()) }
+pub fn encode_nsec(sk: &SecretKey) -> Result<String> {
+    encode(HRP_NSEC, sk.as_bytes())
+}
 
 pub fn decode_nsec(s: &str) -> Result<SecretKey> {
     let bytes = decode(HRP_NSEC, s)?;
     SecretKey::from_slice(&bytes)
 }
 
-pub fn encode_npub(pk: &PublicKey) -> Result<String> { encode(HRP_NPUB, pk.as_bytes()) }
+pub fn encode_npub(pk: &PublicKey) -> Result<String> {
+    encode(HRP_NPUB, pk.as_bytes())
+}
 
 pub fn decode_npub(s: &str) -> Result<PublicKey> {
     let bytes = decode(HRP_NPUB, s)?;
     PublicKey::from_slice(&bytes)
 }
 
-pub fn encode_note(event_id: &[u8; 32]) -> Result<String> { encode(HRP_NOTE, event_id) }
+pub fn encode_note(event_id: &[u8; 32]) -> Result<String> {
+    encode(HRP_NOTE, event_id)
+}
 
 pub fn decode_note(s: &str) -> Result<[u8; 32]> {
     let bytes = decode(HRP_NOTE, s)?;
     if bytes.len() != 32 {
-        return Err(Error::KeyLength { expected: 32, got: bytes.len() });
+        return Err(Error::KeyLength {
+            expected: 32,
+            got: bytes.len(),
+        });
     }
     let mut out = [0u8; 32];
     out.copy_from_slice(&bytes);
@@ -103,6 +115,12 @@ mod tests {
     #[test]
     fn wrong_hrp_is_rejected() {
         let err = decode_npub(NSEC_STR).unwrap_err();
-        assert!(matches!(err, Error::Bech32Hrp { expected: "npub", .. }));
+        assert!(matches!(
+            err,
+            Error::Bech32Hrp {
+                expected: "npub",
+                ..
+            }
+        ));
     }
 }

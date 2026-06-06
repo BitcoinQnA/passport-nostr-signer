@@ -32,6 +32,18 @@ pub enum ApprovalRequest {
         peer_pubkey_hex: String,
         plaintext_preview: String,
     },
+    Nip04Decrypt {
+        origin: Option<String>,
+        key_label: String,
+        peer_pubkey_hex: String,
+        ciphertext_preview: String,
+    },
+    Nip44Decrypt {
+        origin: Option<String>,
+        key_label: String,
+        peer_pubkey_hex: String,
+        ciphertext_preview: String,
+    },
 }
 
 impl ApprovalRequest {
@@ -40,7 +52,9 @@ impl ApprovalRequest {
         match self {
             Self::SignEvent { origin, .. }
             | Self::Nip04Encrypt { origin, .. }
-            | Self::Nip44Encrypt { origin, .. } => origin.as_deref(),
+            | Self::Nip44Encrypt { origin, .. }
+            | Self::Nip04Decrypt { origin, .. }
+            | Self::Nip44Decrypt { origin, .. } => origin.as_deref(),
         }
     }
 
@@ -49,6 +63,8 @@ impl ApprovalRequest {
             Self::SignEvent { .. } => "sign_event",
             Self::Nip04Encrypt { .. } => "nip04_encrypt",
             Self::Nip44Encrypt { .. } => "nip44_encrypt",
+            Self::Nip04Decrypt { .. } => "nip04_decrypt",
+            Self::Nip44Decrypt { .. } => "nip44_decrypt",
         }
     }
 }

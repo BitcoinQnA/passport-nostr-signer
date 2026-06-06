@@ -6,6 +6,7 @@ const statusEl = document.getElementById("status");
 const pillEl = document.getElementById("status-pill");
 const selectedEl = document.getElementById("selected");
 const keysEl = document.getElementById("keys");
+const originsEl = document.getElementById("origins");
 const pairBtn = document.getElementById("pair");
 
 bgPort.onMessage.addListener((msg) => {
@@ -53,6 +54,8 @@ bgPort.onMessage.addListener((msg) => {
     });
     keysEl.appendChild(li);
   }
+
+  renderOrigins(msg.pending || {}, msg.permissions || {});
 });
 
 // First-time pairing. `navigator.usb.requestDevice` has to run inside a
@@ -76,6 +79,75 @@ document.getElementById("openOptions").addEventListener("click", (e) => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();
 });
+
+function renderOrigins(pending, permissions) {
+  originsEl.innerHTML = "";
+  const pendingList = Object.values(pending).sort((a, b) => a.firstSeen - b.firstSeen);
+  if (pendingList.length > 0) {
+    const title = document.createElement("div");
+    title.className = "section-title";
+    title.textContent = "Site access";
+    originsEl.appendChild(title);
+  }
+  for (const entry of pendingList) {
+    const row = document.createElement("div");
+    row.className = "origin-row";
+
+    const meta = document.createElement("div");
+    meta.className = "origin-meta";
+    const origin = document.createElement("div");
+    origin.className = "origin";
+    origin.textContent = entry.origin;
+    const method = document.createElement("div");
+    method.className = "origin-method";
+    method.textContent = methodLabel(entry.method);
+    meta.appendChild(origin);
+    meta.appendChild(method);
+
+    const actions = document.createElement("div");
+    actions.className = "origin-actions";
+    const deny = document.createElement("button");
+    deny.className = "mini";
+    deny.type = "button";
+    deny.textContent = "Block";
+    deny.addEventListener("click", () => {
+      bgPort.postMessage({ type: "deny-origin", origin: entry.origin });
+    });
+    const allow = document.createElement("button");
+    allow.className = "mini primary-mini";
+    allow.type = "button";
+    allow.textContent = "Allow";
+    allow.addEventListener("click", () => {
+      bgPort.postMessage({ type: "allow-origin", origin: entry.origin });
+    });
+    actions.appendChild(deny);
+    actions.appendChild(allow);
+
+    row.appendChild(meta);
+    row.appendChild(actions);
+    originsEl.appendChild(row);
+  }
+
+  const allowed = Object.entries(permissions).filter(([, v]) => v === "allowed");
+  if (pendingList.length === 0 && allowed.length > 0) {
+    const note = document.createElement("div");
+    note.className = "origin-note";
+    note.textContent = `${allowed.length} site${allowed.length === 1 ? "" : "s"} allowed`;
+    originsEl.appendChild(note);
+  }
+}
+
+function methodLabel(method) {
+  switch (method) {
+    case "get_public_key": return "wants your public key";
+    case "sign_event": return "wants to sign";
+    case "nip04_encrypt":
+    case "nip44_encrypt": return "wants to encrypt";
+    case "nip04_decrypt":
+    case "nip44_decrypt": return "wants to decrypt";
+    default: return method || "requested access";
+  }
+}
 
 function shortHex(s) {
   if (!s) return "";

@@ -12,7 +12,8 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use cbc::{Decryptor, Encryptor};
 use cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use k256::{
-    elliptic_curve::sec1::ToEncodedPoint, AffinePoint, ProjectivePoint, PublicKey as K256Pub, Scalar,
+    elliptic_curve::sec1::ToEncodedPoint, AffinePoint, ProjectivePoint, PublicKey as K256Pub,
+    Scalar,
 };
 
 use crate::{Error, PublicKey, Result, SecretKey};
@@ -77,11 +78,12 @@ fn lift_x(x: &[u8; 32]) -> Result<AffinePoint> {
 }
 
 fn sk_to_scalar(sk: &SecretKey) -> Result<Scalar> {
-    use k256::elliptic_curve::scalar::ScalarPrimitive;
     use k256::elliptic_curve::generic_array::GenericArray;
+    use k256::elliptic_curve::scalar::ScalarPrimitive;
     let ga = GenericArray::from_slice(sk.as_bytes());
-    let sp: ScalarPrimitive<k256::Secp256k1> =
-        ScalarPrimitive::from_bytes(ga).into_option().ok_or(Error::InvalidKey)?;
+    let sp: ScalarPrimitive<k256::Secp256k1> = ScalarPrimitive::from_bytes(ga)
+        .into_option()
+        .ok_or(Error::InvalidKey)?;
     Ok(sp.into())
 }
 

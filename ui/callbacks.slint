@@ -7,9 +7,11 @@ export struct ApprovalState {
     origin: string,
     key-label: string,
     key-short: string,
+    peer-short: string,
     kind: int,
     kind-label: string,
     tag-count: int,
+    content-label: string,
     content-preview: string,
 }
 
@@ -22,6 +24,18 @@ export struct StoredKey {
     archived: bool,
 }
 
+export struct AutoSignRuleRow {
+    rule-id: string,
+    origin: string,
+    kind: int,
+    enabled: bool,
+    expires-at-label: string,
+    max-per-hour: int,
+    used-in-window: int,
+    total-uses: int,
+    last-used-label: string,
+}
+
 export global Callbacks {
     // -- Approval state ------------------------------------------------------
     in-out property <ApprovalState> approval: {
@@ -30,9 +44,11 @@ export global Callbacks {
         origin: "",
         key-label: "",
         key-short: "",
+        peer-short: "",
         kind: 0,
         kind-label: "",
         tag-count: 0,
+        content-label: "Content",
         content-preview: "",
     };
     callback approve();
@@ -61,6 +77,13 @@ export global Callbacks {
     // Status banner on the main page.
     in-out property <string> server-status: "starting ws://127.0.0.1:9876";
 
+    // -- Auto-sign policies -------------------------------------------------
+    // Configured on-device only. Matching browser requests can use these
+    // policies, but cannot create or relax them.
+    in-out property <[AutoSignRuleRow]> auto-sign-rules: [];
+    in-out property <int> auto-sign-rule-count: 0;
+    in-out property <string> auto-sign-error: "";
+
     // -- UI → Rust ----------------------------------------------------------
     callback select-key(string /* uuid hex */);
 
@@ -83,4 +106,16 @@ export global Callbacks {
 
     // Validate a proposed label. Returns an error message, or "" if OK.
     pure callback validate-label(string /* label */) -> string;
+
+    // Auto-sign rule management.
+    callback refresh-auto-sign-rules(string /* key uuid */);
+    callback add-auto-sign-rule(
+        string /* key uuid */,
+        string /* origin */,
+        int /* kind */,
+        int /* expiry hours, 0 = never */,
+        int /* max per hour */
+    );
+    callback delete-auto-sign-rule(string /* key uuid */, string /* rule id */);
+    callback toggle-auto-sign-rule(string /* key uuid */, string /* rule id */, bool /* enabled */);
 }

@@ -32,6 +32,62 @@ let wsQueue = new Map(); // id → { resolve, reject }
 let serverUrl = DEFAULT_WS;
 let selectedUuid = null;
 let transportKind = DEFAULT_TRANSPORT;
+
+function normalizeOrigin(origin) {
+  try {
+    const u = new URL(origin);
+    if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+    return u.origin;
+  } catch {
+    return null;
+  }
+}
+
+async function getOriginState() {
+  const v = await chrome.storage.local.get(["originPermissions", "pendingOrigins"]);
+  return {
+    permissions: v.originPermissions || {},
+    pending: v.pendingOrigins || {},
+  };
+}
+
+async function ensureOriginAuthorized(origin, method) {
+  const cleanOrigin = normalizeOrigin(origin);
+  if (!cleanOrigin) {
+    throw { code: 1, message: "invalid requesting origin" };
+  }
+
+  const { permissions, pending } = await getOriginState();
+  if (permissions[cleanOrigin] === "allowed") return cleanOrigin;
+  if (permissions[cleanOrigin] === "denied") {
+    throw { code: 4, message: `${cleanOrigin} is blocked` };
+  }
+
+  const now = Date.now();
+  pending[cleanOrigin] = {
+    origin: cleanOrigin,
+    method,
+    firstSeen: pending[cleanOrigin]?.firstSeen || now,
+    lastSeen: now,
+  };
+  await chrome.storage.local.set({ pendingOrigins: pending });
+  throw {
+    code: 4,
+    message: `Open the Passport Signer popup to allow ${cleanOrigin}`,
+  };
+}
+
+async function setOriginPermission(origin, decision) {
+  const cleanOrigin = normalizeOrigin(origin);
+  if (!cleanOrigin) return;
+  const { permissions, pending } = await getOriginState();
+  permissions[cleanOrigin] = decision;
+  delete pending[cleanOrigin];
+  await chrome.storage.local.set({
+    originPermissions: permissions,
+    pendingOrigins: pending,
+  });
+}
 // --- Offscreen document proxy for Web Serial --------------------------------
 //
 // Web Serial is only available in document contexts. We create a hidden
@@ -234,6 +290,7 @@ async function ensureValidSelection() {
 }
 
 async function handleMethod(method, params, origin) {
+  const allowedOrigin = await ensureOriginAuthorized(origin, method);
   switch (method) {
     case "get_public_key":
       await ensureValidSelection();
@@ -244,7 +301,7 @@ async function handleMethod(method, params, origin) {
       await ensureValidSelection();
       return await rpc("sign_event", pruneEmpty({
         uuid: selectedUuid,
-        origin,
+        origin: allowedOrigin,
         event: params?.event,
       }));
 
@@ -252,7 +309,7 @@ async function handleMethod(method, params, origin) {
     case "nip44_encrypt":
       return await rpc(method, pruneEmpty({
         uuid: selectedUuid,
-        origin,
+        origin: allowedOrigin,
         peer_pubkey: params?.peer_pubkey,
         plaintext: params?.plaintext,
       }));
@@ -261,7 +318,7 @@ async function handleMethod(method, params, origin) {
     case "nip44_decrypt":
       return await rpc(method, pruneEmpty({
         uuid: selectedUuid,
-        origin,
+        origin: allowedOrigin,
         peer_pubkey: params?.peer_pubkey,
         ciphertext: params?.ciphertext,
       }));
@@ -287,7 +344,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.target === "offscreen-usb") return;
   (async () => {
     try {
-      const result = await handleMethod(msg.method, msg.params, msg.origin);
+      const origin = sender?.url ? normalizeOrigin(sender.url) : normalizeOrigin(msg.origin);
+      const result = await handleMethod(msg.method, msg.params, origin);
       sendResponse({ result });
     } catch (err) {
       sendResponse({ error: { code: err?.code ?? 99, message: err?.message || String(err) } });
@@ -339,6 +397,7 @@ chrome.runtime.onConnect.addListener((port) => {
         serverUrl,
         selectedUuid,
         keys,
+        ...(await getOriginState()),
       });
     } catch (err) {
       safePost({
@@ -347,6 +406,7 @@ chrome.runtime.onConnect.addListener((port) => {
         serverUrl,
         selectedUuid,
         error: err?.message || String(err),
+        ...(await getOriginState()),
       });
     }
   };
@@ -358,6 +418,14 @@ chrome.runtime.onConnect.addListener((port) => {
       try {
         await rpc("select_key", { uuid: cmd.uuid });
       } catch {}
+      await send();
+    }
+    if (cmd?.type === "allow-origin" && cmd.origin) {
+      await setOriginPermission(cmd.origin, "allowed");
+      await send();
+    }
+    if (cmd?.type === "deny-origin" && cmd.origin) {
+      await setOriginPermission(cmd.origin, "denied");
       await send();
     }
   });

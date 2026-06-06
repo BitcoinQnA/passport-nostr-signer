@@ -128,7 +128,7 @@ export component EditPagePage inherits Rectangle {
                 if props.version == EditPageVersion.add: ButtonSection {
                     Button {
                         icon: "";
-                        label: "Generate New Key";
+                        label: "Derive From Seed";
                         importance: Importance.primary;
                         clicked => {
                             Callbacks.save-new(new-label, new-color, "generate", account-or-zero());

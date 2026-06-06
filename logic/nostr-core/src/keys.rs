@@ -25,7 +25,10 @@ impl SecretKey {
 
     pub fn from_slice(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 32 {
-            return Err(Error::KeyLength { expected: 32, got: bytes.len() });
+            return Err(Error::KeyLength {
+                expected: 32,
+                got: bytes.len(),
+            });
         }
         let mut buf = [0u8; 32];
         buf.copy_from_slice(bytes);
@@ -57,9 +60,13 @@ impl SecretKey {
         PublicKey(out)
     }
 
-    pub fn as_bytes(&self) -> &[u8; 32] { &self.0 }
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
 
-    pub fn to_hex(&self) -> String { hex::encode(self.0) }
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0)
+    }
 
     /// Internal: get a k256 SigningKey. Callers should zeroise inputs themselves.
     pub(crate) fn signing_key(&self) -> SigningKey {
@@ -70,7 +77,9 @@ impl SecretKey {
 impl fmt::Debug for SecretKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Never print the scalar.
-        f.debug_struct("SecretKey").field("pubkey", &self.public_key()).finish()
+        f.debug_struct("SecretKey")
+            .field("pubkey", &self.public_key())
+            .finish()
     }
 }
 
@@ -82,7 +91,10 @@ impl PublicKey {
 
     pub fn from_slice(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 32 {
-            return Err(Error::KeyLength { expected: 32, got: bytes.len() });
+            return Err(Error::KeyLength {
+                expected: 32,
+                got: bytes.len(),
+            });
         }
         let mut buf = [0u8; 32];
         buf.copy_from_slice(bytes);
@@ -94,9 +106,13 @@ impl PublicKey {
         Self::from_slice(&bytes)
     }
 
-    pub fn as_bytes(&self) -> &[u8; 32] { &self.0 }
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
 
-    pub fn to_hex(&self) -> String { hex::encode(self.0) }
+    pub fn to_hex(&self) -> String {
+        hex::encode(self.0)
+    }
 
     pub(crate) fn verifying_key(&self) -> VerifyingKey {
         VerifyingKey::from_bytes(&self.0).expect("validated in ctor")
@@ -110,7 +126,9 @@ impl fmt::Debug for PublicKey {
 }
 
 impl fmt::Display for PublicKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.write_str(&self.to_hex()) }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_hex())
+    }
 }
 
 #[cfg(test)]
@@ -127,10 +145,9 @@ mod tests {
     #[test]
     fn derives_nip06_reference_pubkey() {
         // NIP-06 test vector: sk above should produce this x-only npub hex.
-        let sk = SecretKey::from_hex(
-            "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a",
-        )
-        .unwrap();
+        let sk =
+            SecretKey::from_hex("7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a")
+                .unwrap();
         let pk = sk.public_key();
         assert_eq!(
             pk.to_hex(),
@@ -140,7 +157,10 @@ mod tests {
 
     #[test]
     fn rejects_bad_key_length() {
-        assert!(matches!(SecretKey::from_slice(&[0u8; 31]), Err(Error::KeyLength { .. })));
+        assert!(matches!(
+            SecretKey::from_slice(&[0u8; 31]),
+            Err(Error::KeyLength { .. })
+        ));
     }
 
     #[test]

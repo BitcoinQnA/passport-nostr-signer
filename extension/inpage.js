@@ -31,7 +31,7 @@
       pending.set(id, { resolve, reject });
       window.postMessage(
         { source: SOURCE, id, kind: "request", method, params: params || {} },
-        "*",
+        window.location.origin,
       );
       // Safety: time out after 5 minutes so approval prompts don't leak.
       setTimeout(() => {
@@ -44,6 +44,7 @@
   }
 
   window.addEventListener("message", (ev) => {
+    if (ev.source !== window) return;
     const data = ev.data;
     if (!data || data.source !== SOURCE || data.kind !== "response") return;
     const entry = pending.get(data.id);

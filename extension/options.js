@@ -84,11 +84,11 @@ document.getElementById("forget-ports").addEventListener("click", async () => {
     for (const d of devices) {
       try { await d.forget(); } catch (e) { console.warn("forget failed:", e); }
     }
-    await chrome.storage.local.remove("selectedUuid");
+    await chrome.storage.local.remove(["selectedUuid", "originPermissions", "pendingOrigins"]);
     const remaining = (await navigator.usb.getDevices()).length;
     forgetStatusEl.textContent = devices.length === 0
-      ? "nothing to reset"
-      : `cleared ${devices.length} device(s) and key selection, ${remaining} remaining`;
+      ? "cleared key selection and site permissions"
+      : `cleared ${devices.length} device(s), key selection, and site permissions; ${remaining} remaining`;
     forgetStatusEl.classList.add("visible");
     setTimeout(() => forgetStatusEl.classList.remove("visible"), 2500);
   } catch (e) {

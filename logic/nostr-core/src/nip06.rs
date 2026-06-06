@@ -8,9 +8,7 @@
 
 use hmac::{Hmac, Mac};
 use k256::{
-    elliptic_curve::{
-        generic_array::GenericArray, scalar::ScalarPrimitive, sec1::ToEncodedPoint,
-    },
+    elliptic_curve::{generic_array::GenericArray, scalar::ScalarPrimitive, sec1::ToEncodedPoint},
     ProjectivePoint, PublicKey as K256Pub, Scalar, SecretKey as K256Sec,
 };
 use sha2::Sha512;
@@ -27,8 +25,8 @@ const NOSTR_COIN: u32 = 1237;
 /// NIP-06 (path m/44'/1237'/account'/0/0). `passphrase` is the BIP-39
 /// passphrase — pass "" for the standard "no passphrase" case.
 pub fn derive(mnemonic: &str, passphrase: &str, account: u32) -> Result<SecretKey> {
-    let mnemonic_parsed = bip39::Mnemonic::parse(mnemonic)
-        .map_err(|_| Error::Nip06("invalid mnemonic"))?;
+    let mnemonic_parsed =
+        bip39::Mnemonic::parse(mnemonic).map_err(|_| Error::Nip06("invalid mnemonic"))?;
     let seed = mnemonic_parsed.to_seed(passphrase);
 
     let (mut k, mut c) = master_from_seed(&seed)?;
@@ -73,8 +71,8 @@ fn derive_child(
     parent_c: &[u8; 32],
     index: u32,
 ) -> Result<([u8; 32], [u8; 32])> {
-    let mut mac = <HmacSha512 as Mac>::new_from_slice(parent_c)
-        .map_err(|_| Error::Nip06("hmac init"))?;
+    let mut mac =
+        <HmacSha512 as Mac>::new_from_slice(parent_c).map_err(|_| Error::Nip06("hmac init"))?;
 
     if index >= HARDENED {
         // Hardened: 0x00 || k_parent || i_be
@@ -144,7 +142,8 @@ mod tests {
     use super::*;
 
     // NIP-06 official test vectors
-    const MN1: &str = "leader monkey parrot ring guide accident before fence cannon height naive bean";
+    const MN1: &str =
+        "leader monkey parrot ring guide accident before fence cannon height naive bean";
     const SK1_HEX: &str = "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a";
 
     const MN2: &str = "what bleak badge arrange retreat wolf trade produce cricket blur garlic valid proud rude strong choose busy staff weather area salt hollow arm fade";

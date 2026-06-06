@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 mod approval;
+mod autosign;
 mod engine;
 mod master_key;
 mod transport;
@@ -10,11 +11,11 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use async_trait::async_trait;
-use keystore::Keystore;
+use keystore::{Keystore, MasterKeySource};
 use nostr_core::{PublicKey, SecretKey};
 use slint_keyos_platform::{
     app,
@@ -37,6 +38,7 @@ use crate::{
 app!("Nostr Signer");
 
 const WS_BIND: &str = "127.0.0.1:9876";
+const APPROVAL_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 #[allow(dead_code)]
 const DATA_SUBDIR: &str = ".passport-nostr-signer-keyos";
 
@@ -50,15 +52,32 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
         log::error!("cannot create data dir {}: {e}", data_dir.display());
     }
     let keys_path = data_dir.join("keys.json");
+    let autosign_path = data_dir.join("autosign.json");
+    let autosign_mac_key = autosign_mac_key();
 
     // Auto-seed a dev key on first launch so the UI has something to show.
     let keystore = match ensure_dev_keystore(&keys_path) {
         Ok(k) => Arc::new(Mutex::new(k)),
         Err(e) => {
             log::error!("keystore init failed: {e}");
-            ui.global::<Callbacks>().set_server_status(format!("keystore init error: {e}").into());
+            ui.global::<Callbacks>()
+                .set_server_status(format!("keystore init error: {e}").into());
             ui.run().expect("UI running");
             return;
+        }
+    };
+
+    let autosign = match autosign_mac_key.as_ref() {
+        Some(mac_key) => match autosign::load(&autosign_path, mac_key) {
+            Ok(store) => Arc::new(Mutex::new(store)),
+            Err(e) => {
+                log::warn!("auto-sign policy load failed; starting with no policies: {e}");
+                Arc::new(Mutex::new(autosign::AutoSignStore::default()))
+            }
+        },
+        None => {
+            log::warn!("auto-sign unavailable: app seed could not be read");
+            Arc::new(Mutex::new(autosign::AutoSignStore::default()))
         }
     };
 
@@ -98,7 +117,15 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
         pending_tx: pending_tx.clone(),
     });
 
-    let engine = Arc::new(Engine::new(keystore, approver, EngineConfig::default()));
+    let engine = Arc::new(Engine::new(
+        keystore,
+        keys_path.clone(),
+        autosign,
+        autosign_path.clone(),
+        autosign_mac_key,
+        approver,
+        EngineConfig::default(),
+    ));
 
     // Populate the UI keys model + restore the previously-selected identity.
     refresh_keys_ui(&ui, &engine);
@@ -108,20 +135,26 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
                 let mut uuid = [0u8; 16];
                 uuid.copy_from_slice(&bytes);
                 if engine.select(uuid) {
-                    ui.global::<Callbacks>().set_selected_uuid(prev.trim().to_string().into());
+                    ui.global::<Callbacks>()
+                        .set_selected_uuid(prev.trim().to_string().into());
                 }
             }
         }
     }
     // If nothing restored, default to the first key.
     if engine.selected().is_none() {
-        if let Some((uuid_hex, _, _, _, _)) = engine.key_list().into_iter().next() {
+        if let Some((uuid_hex, _, _, _, _)) = engine
+            .key_list()
+            .into_iter()
+            .find(|(_, _, _, _, archived)| !archived)
+        {
             if let Ok(bytes) = hex::decode(&uuid_hex) {
                 if bytes.len() == 16 {
                     let mut uuid = [0u8; 16];
                     uuid.copy_from_slice(&bytes);
                     if engine.select(uuid) {
-                        ui.global::<Callbacks>().set_selected_uuid(uuid_hex.clone().into());
+                        ui.global::<Callbacks>()
+                            .set_selected_uuid(uuid_hex.clone().into());
                         let _ = std::fs::write(&selected_path, &uuid_hex);
                     }
                 }
@@ -156,120 +189,130 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
 
     // Live label validation. The Slint side calls this on every edit; we
     // still re-validate on save before mutating state.
-    ui.global::<Callbacks>().on_validate_label(move |text| {
-        validate_label(text.as_str()).unwrap_or_default().into()
-    });
+    ui.global::<Callbacks>()
+        .on_validate_label(move |text| validate_label(text.as_str()).unwrap_or_default().into());
 
     // Create a new identity. `method` is "generate" or "qr".
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
         let selected_path = selected_path.clone();
-        ui.global::<Callbacks>().on_save_new(move |label, color, method, account| {
-            let Some(ui) = weak.upgrade() else { return };
-            let label = label.as_str().trim().to_string();
-            if let Some(err) = validate_label(&label) {
-                ui.global::<Callbacks>().set_editing_error(err.into());
-                return;
-            }
-            let color_u8 = color.clamp(0, 255) as u8;
-
-            let method = method.as_str();
-            let sk = match method {
-                "generate" => match derive_nostr_from_device_seed(account.max(0) as u32) {
-                    Ok(sk) => sk,
-                    Err(e) => {
-                        log::warn!("generate failed: {e}");
-                        ui.global::<Callbacks>().set_editing_error(format!("{e}").into());
-                        return;
-                    }
-                },
-                "qr" => {
-                    let scanned = match scan_nsec_via_qr() {
-                        Ok(Some(s)) => s,
-                        Ok(None) => return, // cancelled
-                        Err(e) => {
-                            log::warn!("qr scan failed: {e}");
-                            ui.global::<Callbacks>().set_editing_error(format!("{e}").into());
-                            return;
-                        }
-                    };
-                    match parse_nsec_or_hex(&scanned) {
-                        Ok(sk) => sk,
-                        Err(msg) => {
-                            ui.global::<Callbacks>().set_editing_error(msg.into());
-                            return;
-                        }
-                    }
-                }
-                other => {
-                    log::warn!("unknown save-new method: {other}");
+        ui.global::<Callbacks>()
+            .on_save_new(move |label, color, method, account| {
+                let Some(ui) = weak.upgrade() else { return };
+                let label = label.as_str().trim().to_string();
+                if let Some(err) = validate_label(&label) {
+                    ui.global::<Callbacks>().set_editing_error(err.into());
                     return;
                 }
-            };
+                let color_u8 = color.clamp(0, 255) as u8;
 
-            match engine.add_key(label, &sk, color_u8) {
-                Ok(uuid_hex) => {
-                    refresh_keys_ui(&ui, &engine);
-                    let _ = std::fs::write(&selected_path, &uuid_hex);
-                    ui.global::<Callbacks>().set_selected_uuid(uuid_hex.into());
-                    ui.global::<Callbacks>().set_editing_error("".into());
-                    ui.global::<Navigate>().invoke_backward();
+                let method = method.as_str();
+                let sk = match method {
+                    "generate" => match derive_nostr_from_device_seed(account.max(0) as u32) {
+                        Ok(sk) => sk,
+                        Err(e) => {
+                            log::warn!("generate failed: {e}");
+                            ui.global::<Callbacks>()
+                                .set_editing_error(format!("{e}").into());
+                            return;
+                        }
+                    },
+                    "qr" => {
+                        let scanned = match scan_nsec_via_qr() {
+                            Ok(Some(s)) => s,
+                            Ok(None) => return, // cancelled
+                            Err(e) => {
+                                log::warn!("qr scan failed: {e}");
+                                ui.global::<Callbacks>()
+                                    .set_editing_error(format!("{e}").into());
+                                return;
+                            }
+                        };
+                        match parse_nsec_or_hex(&scanned) {
+                            Ok(sk) => sk,
+                            Err(msg) => {
+                                ui.global::<Callbacks>().set_editing_error(msg.into());
+                                return;
+                            }
+                        }
+                    }
+                    other => {
+                        log::warn!("unknown save-new method: {other}");
+                        return;
+                    }
+                };
+
+                match engine.add_key(label, &sk, color_u8) {
+                    Ok(uuid_hex) => {
+                        refresh_keys_ui(&ui, &engine);
+                        let _ = std::fs::write(&selected_path, &uuid_hex);
+                        ui.global::<Callbacks>().set_selected_uuid(uuid_hex.into());
+                        ui.global::<Callbacks>().set_editing_error("".into());
+                        ui.global::<Navigate>().invoke_backward();
+                    }
+                    Err(e) => {
+                        ui.global::<Callbacks>()
+                            .set_editing_error(e.to_string().into());
+                    }
                 }
-                Err(e) => {
-                    ui.global::<Callbacks>().set_editing_error(e.to_string().into());
-                }
-            }
-        });
+            });
     }
 
     // Save edits to an existing identity.
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
-        ui.global::<Callbacks>().on_edit_save(move |uuid_hex, new_label, new_color| {
-            let Some(ui) = weak.upgrade() else { return };
-            let label = new_label.as_str().trim().to_string();
-            if let Some(err) = validate_label(&label) {
-                ui.global::<Callbacks>().set_editing_error(err.into());
-                return;
-            }
-            let uuid = match parse_uuid_arg(uuid_hex.as_str()) {
-                Some(u) => u,
-                None => {
-                    ui.global::<Callbacks>().set_editing_error("Bad uuid.".into());
+        ui.global::<Callbacks>()
+            .on_edit_save(move |uuid_hex, new_label, new_color| {
+                let Some(ui) = weak.upgrade() else { return };
+                let label = new_label.as_str().trim().to_string();
+                if let Some(err) = validate_label(&label) {
+                    ui.global::<Callbacks>().set_editing_error(err.into());
                     return;
                 }
-            };
-            let color_u8 = new_color.clamp(0, 255) as u8;
-            if let Err(e) = engine.rename(&uuid, label) {
-                ui.global::<Callbacks>().set_editing_error(e.to_string().into());
-                return;
-            }
-            if let Err(e) = engine.set_color(&uuid, color_u8) {
-                ui.global::<Callbacks>().set_editing_error(e.to_string().into());
-                return;
-            }
-            refresh_keys_ui(&ui, &engine);
-            ui.global::<Callbacks>().set_editing_error("".into());
-            ui.global::<Navigate>().invoke_backward();
-        });
+                let uuid = match parse_uuid_arg(uuid_hex.as_str()) {
+                    Some(u) => u,
+                    None => {
+                        ui.global::<Callbacks>()
+                            .set_editing_error("Bad uuid.".into());
+                        return;
+                    }
+                };
+                let color_u8 = new_color.clamp(0, 255) as u8;
+                if let Err(e) = engine.rename(&uuid, label) {
+                    ui.global::<Callbacks>()
+                        .set_editing_error(e.to_string().into());
+                    return;
+                }
+                if let Err(e) = engine.set_color(&uuid, color_u8) {
+                    ui.global::<Callbacks>()
+                        .set_editing_error(e.to_string().into());
+                    return;
+                }
+                refresh_keys_ui(&ui, &engine);
+                ui.global::<Callbacks>().set_editing_error("".into());
+                ui.global::<Navigate>().invoke_backward();
+            });
     }
 
     // Archive a key.
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
+        let selected_path = selected_path.clone();
         ui.global::<Callbacks>().on_archive(move |uuid_hex| {
             let Some(ui) = weak.upgrade() else { return };
             if let Some(uuid) = parse_uuid_arg(uuid_hex.as_str()) {
+                let was_selected = engine.selected() == Some(uuid);
                 if let Err(e) = engine.set_archived(&uuid, true) {
                     log::warn!("archive failed: {e}");
                     return;
                 }
                 // If this was the active key, clear selection.
-                if engine.selected() == Some(uuid) {
+                if was_selected {
                     ui.global::<Callbacks>().set_selected_uuid("".into());
+                    let _ = std::fs::remove_file(&selected_path);
                 }
                 refresh_keys_ui(&ui, &engine);
             }
@@ -308,6 +351,113 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
                 }
             }
         });
+    }
+
+    // Auto-sign rules are configured only from the device UI. Browser requests
+    // can match them, but cannot create, relax, or delete them.
+    {
+        let engine = engine.clone();
+        let weak = ui.as_weak();
+        ui.global::<Callbacks>()
+            .on_refresh_auto_sign_rules(move |uuid_hex| {
+                let Some(ui) = weak.upgrade() else { return };
+                refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
+            });
+    }
+    {
+        let engine = engine.clone();
+        let weak = ui.as_weak();
+        ui.global::<Callbacks>().on_add_auto_sign_rule(
+            move |uuid_hex, origin, kind, expiry_hours, max_per_hour| {
+                let Some(ui) = weak.upgrade() else { return };
+                let Some(uuid) = parse_uuid_arg(uuid_hex.as_str()) else {
+                    ui.global::<Callbacks>()
+                        .set_auto_sign_error("Bad key uuid.".into());
+                    return;
+                };
+                let kind = match ui_u32(kind, "Kind", 0, i32::MAX as u32) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                        return;
+                    }
+                };
+                let expiry_hours = match ui_u32(expiry_hours, "Expiry hours", 0, 24 * 365) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                        return;
+                    }
+                };
+                let max_per_hour = match ui_u32(max_per_hour, "Max per hour", 1, 1_000) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                        return;
+                    }
+                };
+
+                match engine.add_auto_sign_rule(
+                    &uuid,
+                    origin.as_str().to_string(),
+                    kind,
+                    expiry_hours,
+                    max_per_hour,
+                ) {
+                    Ok(()) => {
+                        ui.global::<Callbacks>().set_auto_sign_error("".into());
+                        refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
+                    }
+                    Err(e) => {
+                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                    }
+                }
+            },
+        );
+    }
+    {
+        let engine = engine.clone();
+        let weak = ui.as_weak();
+        ui.global::<Callbacks>()
+            .on_delete_auto_sign_rule(move |uuid_hex, rule_id_hex| {
+                let Some(ui) = weak.upgrade() else { return };
+                let Some(rule_id) = parse_uuid_arg(rule_id_hex.as_str()) else {
+                    ui.global::<Callbacks>()
+                        .set_auto_sign_error("Bad auto-sign rule id.".into());
+                    return;
+                };
+                match engine.delete_auto_sign_rule(&rule_id) {
+                    Ok(()) => {
+                        ui.global::<Callbacks>().set_auto_sign_error("".into());
+                        refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
+                    }
+                    Err(e) => {
+                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                    }
+                }
+            });
+    }
+    {
+        let engine = engine.clone();
+        let weak = ui.as_weak();
+        ui.global::<Callbacks>()
+            .on_toggle_auto_sign_rule(move |uuid_hex, rule_id_hex, enabled| {
+                let Some(ui) = weak.upgrade() else { return };
+                let Some(rule_id) = parse_uuid_arg(rule_id_hex.as_str()) else {
+                    ui.global::<Callbacks>()
+                        .set_auto_sign_error("Bad auto-sign rule id.".into());
+                    return;
+                };
+                match engine.set_auto_sign_enabled(&rule_id, enabled) {
+                    Ok(()) => {
+                        ui.global::<Callbacks>().set_auto_sign_error("".into());
+                        refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
+                    }
+                    Err(e) => {
+                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                    }
+                }
+            });
     }
 
     // Permanently delete an archived key.
@@ -438,14 +588,22 @@ impl Approver for SlintApprover {
         let (tx, rx) = oneshot::channel();
 
         // Park the tx for the UI thread to drain when the user taps.
-        *self.pending_tx.lock().unwrap() = Some(tx);
+        {
+            let mut pending = self.pending_tx.lock().unwrap();
+            if pending.is_some() {
+                log::warn!("approval rejected: another request is already pending");
+                return ApprovalDecision::Reject;
+            }
+            *pending = Some(tx);
+        }
 
         let weak = self.ui_weak.clone();
         let req_for_ui = req.clone();
         let scheduled = slint_keyos_platform::slint::invoke_from_event_loop(move || {
             if let Some(ui) = weak.upgrade() {
                 populate_approval(&ui, &req_for_ui);
-                ui.global::<Navigate>().invoke_approve_page(NavigateOptions::default());
+                ui.global::<Navigate>()
+                    .invoke_approve_page(NavigateOptions::default());
             }
         });
         if scheduled.is_err() {
@@ -457,58 +615,70 @@ impl Approver for SlintApprover {
         // The `oneshot` crate's receiver is a plain blocking/polling type;
         // wrap it in a future so we can await inside async contexts on
         // both tokio (hosted) and futures_lite (hardware).
-        OneshotFuture::new(rx).await
+        let decision = ApprovalFuture::new(rx, APPROVAL_TIMEOUT).await;
+        if decision == ApprovalDecision::Reject {
+            *self.pending_tx.lock().unwrap() = None;
+        }
+        decision
     }
 }
 
-struct OneshotFuture<T> {
-    rx: oneshot::Receiver<T>,
+struct ApprovalFuture {
+    rx: oneshot::Receiver<ApprovalDecision>,
+    deadline: Instant,
 }
 
-impl<T> OneshotFuture<T> {
-    fn new(rx: oneshot::Receiver<T>) -> Self { Self { rx } }
+impl ApprovalFuture {
+    fn new(rx: oneshot::Receiver<ApprovalDecision>, timeout: Duration) -> Self {
+        Self {
+            rx,
+            deadline: Instant::now() + timeout,
+        }
+    }
 }
 
-impl<T> core::future::Future for OneshotFuture<T> {
-    type Output = T;
+impl core::future::Future for ApprovalFuture {
+    type Output = ApprovalDecision;
     fn poll(
         self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
-    ) -> core::task::Poll<T> {
-        match self.rx.try_recv() {
+    ) -> core::task::Poll<ApprovalDecision> {
+        let this = self.get_mut();
+        match this.rx.try_recv() {
             Ok(v) => core::task::Poll::Ready(v),
             Err(oneshot::TryRecvError::Empty) => {
-                // Wake ourselves shortly. Not ideal, but portable — and
-                // approval requests are user-driven so the wake latency
-                // doesn't matter.
+                let now = Instant::now();
+                if now >= this.deadline {
+                    log::warn!("approval timed out");
+                    return core::task::Poll::Ready(ApprovalDecision::Reject);
+                }
                 let waker = cx.waker().clone();
+                let sleep_for = (this.deadline - now).min(Duration::from_millis(50));
                 std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    std::thread::sleep(sleep_for);
                     waker.wake();
                 });
                 core::task::Poll::Pending
             }
             Err(oneshot::TryRecvError::Disconnected) => {
-                // Sender dropped — treat as reject. This is generic T so
-                // we can't materialise a Reject here; callers that wrap
-                // ApprovalDecision should handle via their own default.
-                // Polling again won't change; yield a Pending that never
-                // resolves would leak — but we only use this with
-                // ApprovalDecision whose default we set in the caller.
-                core::task::Poll::Ready(panic_on_disconnect::<T>())
+                core::task::Poll::Ready(ApprovalDecision::Reject)
             }
         }
     }
 }
 
-fn panic_on_disconnect<T>() -> T {
-    // The SlintApprover always holds the sender alive until the UI fires,
-    // so reaching this would be a bug. Panic rather than ignore.
-    panic!("approver oneshot sender dropped without firing")
-}
-
 fn populate_approval(ui: &AppWindow, req: &ApprovalRequest) {
-    let (origin, key_label, key_short, kind, kind_label, tag_count, content) = match req {
+    let (
+        origin,
+        key_label,
+        key_short,
+        peer_short,
+        kind,
+        kind_label,
+        tag_count,
+        content_label,
+        content,
+    ) = match req {
         ApprovalRequest::SignEvent {
             origin,
             key_label,
@@ -520,9 +690,11 @@ fn populate_approval(ui: &AppWindow, req: &ApprovalRequest) {
             origin.clone().unwrap_or_default(),
             key_label.clone(),
             short_hex(npub_hex),
+            "".to_string(),
             *kind as i32,
             kind_friendly(*kind).to_string(),
             *tag_count as i32,
+            "Content".to_string(),
             content_preview.clone(),
         ),
         ApprovalRequest::Nip04Encrypt {
@@ -533,10 +705,12 @@ fn populate_approval(ui: &AppWindow, req: &ApprovalRequest) {
         } => (
             origin.clone().unwrap_or_default(),
             key_label.clone(),
+            "".to_string(),
             short_hex(peer_pubkey_hex),
             0,
-            "NIP-04 encrypt".into(),
+            "NIP-04 encrypt".to_string(),
             0,
+            "Plaintext".to_string(),
             plaintext_preview.clone(),
         ),
         ApprovalRequest::Nip44Encrypt {
@@ -547,11 +721,45 @@ fn populate_approval(ui: &AppWindow, req: &ApprovalRequest) {
         } => (
             origin.clone().unwrap_or_default(),
             key_label.clone(),
+            "".to_string(),
             short_hex(peer_pubkey_hex),
             0,
-            "NIP-44 encrypt".into(),
+            "NIP-44 encrypt".to_string(),
             0,
+            "Plaintext".to_string(),
             plaintext_preview.clone(),
+        ),
+        ApprovalRequest::Nip04Decrypt {
+            origin,
+            key_label,
+            peer_pubkey_hex,
+            ciphertext_preview,
+        } => (
+            origin.clone().unwrap_or_default(),
+            key_label.clone(),
+            "".to_string(),
+            short_hex(peer_pubkey_hex),
+            0,
+            "NIP-04 decrypt".to_string(),
+            0,
+            "Ciphertext".to_string(),
+            ciphertext_preview.clone(),
+        ),
+        ApprovalRequest::Nip44Decrypt {
+            origin,
+            key_label,
+            peer_pubkey_hex,
+            ciphertext_preview,
+        } => (
+            origin.clone().unwrap_or_default(),
+            key_label.clone(),
+            "".to_string(),
+            short_hex(peer_pubkey_hex),
+            0,
+            "NIP-44 decrypt".to_string(),
+            0,
+            "Ciphertext".to_string(),
+            ciphertext_preview.clone(),
         ),
     };
     let state = ApprovalState {
@@ -560,9 +768,11 @@ fn populate_approval(ui: &AppWindow, req: &ApprovalRequest) {
         origin: origin.into(),
         key_label: key_label.into(),
         key_short: key_short.into(),
+        peer_short: peer_short.into(),
         kind,
         kind_label: kind_label.into(),
         tag_count,
+        content_label: content_label.into(),
         content_preview: content.into(),
     };
     ui.global::<Callbacks>().set_approval(state);
@@ -602,6 +812,85 @@ fn refresh_keys_ui<M: keystore::MasterKeySource>(ui: &AppWindow, engine: &Engine
     ui.global::<Callbacks>().set_archived_count(archived);
 }
 
+fn refresh_auto_sign_ui<M: keystore::MasterKeySource>(
+    ui: &AppWindow,
+    engine: &Engine<M>,
+    uuid_hex: &str,
+) {
+    let Some(uuid) = parse_uuid_arg(uuid_hex) else {
+        let model = ModelRc::new(VecModel::from(Vec::<AutoSignRuleRow>::new()));
+        ui.global::<Callbacks>().set_auto_sign_rules(model);
+        ui.global::<Callbacks>().set_auto_sign_rule_count(0);
+        return;
+    };
+    let now = now_secs();
+    let rows: Vec<AutoSignRuleRow> = engine
+        .auto_sign_rules_for_key(&uuid)
+        .into_iter()
+        .map(|rule| AutoSignRuleRow {
+            rule_id: hex::encode(rule.id).into(),
+            origin: rule.origin.into(),
+            kind: rule.kind.min(i32::MAX as u32) as i32,
+            enabled: rule.enabled,
+            expires_at_label: format_expiry(rule.expires_at, now).into(),
+            max_per_hour: rule.max_per_hour.min(i32::MAX as u32) as i32,
+            used_in_window: rule.used_in_window.min(i32::MAX as u32) as i32,
+            total_uses: rule.total_uses.min(i32::MAX as u64) as i32,
+            last_used_label: format_last_used(rule.last_used_at, now).into(),
+        })
+        .collect();
+    let count = rows.len().min(i32::MAX as usize) as i32;
+    let model = ModelRc::new(VecModel::from(rows));
+    ui.global::<Callbacks>().set_auto_sign_rules(model);
+    ui.global::<Callbacks>().set_auto_sign_rule_count(count);
+}
+
+fn ui_u32(value: i32, label: &str, min: u32, max: u32) -> Result<u32, String> {
+    if value < 0 {
+        return Err(format!("{label} must be at least {min}."));
+    }
+    let value = value as u32;
+    if value < min || value > max {
+        return Err(format!("{label} must be between {min} and {max}."));
+    }
+    Ok(value)
+}
+
+fn format_expiry(expires_at: u64, now: u64) -> String {
+    if expires_at == 0 {
+        "never".into()
+    } else if expires_at <= now {
+        "expired".into()
+    } else {
+        format!("in {}", human_duration(expires_at - now))
+    }
+}
+
+fn format_last_used(last_used_at: u64, now: u64) -> String {
+    if last_used_at == 0 {
+        "never".into()
+    } else if last_used_at >= now {
+        "just now".into()
+    } else {
+        format!("{} ago", human_duration(now - last_used_at))
+    }
+}
+
+fn human_duration(seconds: u64) -> String {
+    let minutes = seconds / 60;
+    if minutes < 1 {
+        return "less than 1m".into();
+    }
+    if minutes < 60 {
+        return format!("{minutes}m");
+    }
+    let hours = minutes / 60;
+    if hours < 48 {
+        return format!("{hours}h");
+    }
+    format!("{}d", hours / 24)
+}
+
 fn validate_label(s: &str) -> Option<String> {
     let trimmed = s.trim();
     if trimmed.is_empty() {
@@ -623,6 +912,13 @@ fn parse_uuid_arg(s: &str) -> Option<[u8; 16]> {
     Some(out)
 }
 
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 fn clear_approval(ui_weak: &slint_keyos_platform::slint::Weak<AppWindow>) {
     if let Some(ui) = ui_weak.upgrade() {
         let mut s = ui.global::<Callbacks>().get_approval();
@@ -641,13 +937,25 @@ fn ensure_dev_keystore(keys: &std::path::Path) -> anyhow::Result<Keystore<KeyOsA
     Ok(keystore::load(KeyOsAppSeedSource, keys)?)
 }
 
+fn autosign_mac_key() -> Option<[u8; 32]> {
+    match KeyOsAppSeedSource.app_seed() {
+        Ok(seed) => Some(autosign::derive_mac_key(&seed)),
+        Err(e) => {
+            log::warn!("app seed unavailable for auto-sign policy MAC: {e}");
+            None
+        }
+    }
+}
+
 #[cfg(not(target_os = "xous"))]
 fn data_dir() -> PathBuf {
-    dirs::home_dir().map(|h| h.join(DATA_SUBDIR)).unwrap_or_else(|| {
-        let mut p = std::env::temp_dir();
-        p.push(DATA_SUBDIR);
-        p
-    })
+    dirs::home_dir()
+        .map(|h| h.join(DATA_SUBDIR))
+        .unwrap_or_else(|| {
+            let mut p = std::env::temp_dir();
+            p.push(DATA_SUBDIR);
+            p
+        })
 }
 
 #[cfg(target_os = "xous")]

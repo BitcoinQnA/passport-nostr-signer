@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import { AppHeader, Button, ButtonSection, IconButton, HeadingSm, TextSm, TextMd,
-         BasePage, PageBody, ContentSection, ConfirmationModal, QrCodeCard } from "@ui/widgets.slint";
+         BasePage, PageBody, ContentSection, ConfirmationModal, QrCodeCard,
+         ShowHide, TitledInput } from "@ui/widgets.slint";
 import { EditPageVersion } from "@ui/pages.slint";
 import { Importance, Palette, Size } from "@ui/theme.slint";
-import { Callbacks } from "../../callbacks.slint";
+import { AutoSignRuleRow, Callbacks } from "../../callbacks.slint";
 import { Navigate } from "../../gen/navigate.slint";
 
 component FieldBlock inherits Rectangle {
@@ -58,17 +59,89 @@ component FieldBlock inherits Rectangle {
     }
 }
 
+component AutoSignRuleBlock inherits Rectangle {
+    in property <AutoSignRuleRow> rule;
+    callback toggle-clicked(bool);
+    callback delete-clicked();
+
+    background: Palette.background-primary-alternative;
+    border-radius: Size.sz3;
+
+    VerticalLayout {
+        padding: Size.sz4;
+        spacing: Size.sz3;
+
+        HorizontalLayout {
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: Size.sz1;
+
+                HeadingSm {
+                    text: rule.origin;
+                    color: Palette.content-primary;
+                    wrap: char-wrap;
+                }
+
+                TextSm {
+                    text: rule.enabled ? "kind \{rule.kind} - enabled" : "kind \{rule.kind} - disabled";
+                    color: rule.enabled ? Palette.content-primary : Palette.content-tertiary;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        TextSm {
+            text: "expires \{rule.expires-at-label} - \{rule.used-in-window}/\{rule.max-per-hour} this hour - \{rule.total-uses} total - last \{rule.last-used-label}";
+            color: Palette.content-secondary;
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            spacing: Size.sz2;
+
+            Button {
+                icon: "";
+                label: rule.enabled ? "Disable" : "Enable";
+                importance: rule.enabled ? Importance.secondary : Importance.primary;
+                clicked => { toggle-clicked(!rule.enabled); }
+            }
+
+            Button {
+                icon: "";
+                label: "Delete";
+                importance: Importance.negative;
+                clicked => { delete-clicked(); }
+            }
+        }
+    }
+}
+
 export component DetailsPagePage inherits Rectangle {
     property <bool> show-reveal-confirm: false;
+    property <bool> show-auto-rule-delete: false;
     property <bool> show-qr: false;
     property <bool> nsec-revealed: false;
     property <string> nsec-value: "";
+    property <string> auto-origin: "";
+    property <string> auto-kind: "22242";
+    property <string> auto-expiry-hours: "24";
+    property <string> auto-max-per-hour: "10";
+    property <string> delete-auto-rule-id: "";
 
     property <bool> is-active: Callbacks.editing-uuid == Callbacks.selected-uuid;
 
     init => {
         nsec-revealed = false;
         nsec-value = "";
+        auto-origin = "";
+        auto-kind = "22242";
+        auto-expiry-hours = "24";
+        auto-max-per-hour = "10";
+        delete-auto-rule-id = "";
+        show-auto-rule-delete = false;
+        Callbacks.auto-sign-error = "";
+        Callbacks.refresh-auto-sign-rules(Callbacks.editing-uuid);
     }
 
     BasePage {
@@ -119,6 +192,112 @@ export component DetailsPagePage inherits Rectangle {
                         text: "Your nsec is sealed to this device. Only reveal when transferring to another signer.";
                         color: Palette.content-tertiary;
                         wrap: word-wrap;
+                    }
+
+                    ShowHide {
+                        text: "Auto-sign rules";
+
+                        TextSm {
+                            text: "Rules sign matching events without a swipe. Use only for trusted sites and low-risk event kinds.";
+                            color: Palette.content-tertiary;
+                            wrap: word-wrap;
+                        }
+
+                        TitledInput {
+                            title: "Origin";
+                            placeholder: "https://nostrudel.ninja";
+                            text: auto-origin;
+                            message: "Exact site origin only. Paths and wildcards are rejected.";
+                            has-notice: false;
+
+                            edited(text) => {
+                                auto-origin = text;
+                                if (Callbacks.auto-sign-error != "") {
+                                    Callbacks.auto-sign-error = "";
+                                }
+                            }
+                        }
+
+                        TitledInput {
+                            title: "Event kind";
+                            text: auto-kind;
+                            input-type: InputType.number;
+                            bounded-number: true;
+                            minimum: "0";
+                            maximum: "2147483647";
+                            message: "Default 22242 is common for NIP-42 auth.";
+                            has-notice: false;
+
+                            edited(text) => { auto-kind = text; }
+                        }
+
+                        TitledInput {
+                            title: "Expiry hours";
+                            text: auto-expiry-hours;
+                            input-type: InputType.number;
+                            bounded-number: true;
+                            minimum: "0";
+                            maximum: "8760";
+                            message: "Use 0 for no expiry.";
+                            has-notice: false;
+
+                            edited(text) => { auto-expiry-hours = text; }
+                        }
+
+                        TitledInput {
+                            title: "Max per hour";
+                            text: auto-max-per-hour;
+                            input-type: InputType.number;
+                            bounded-number: true;
+                            minimum: "1";
+                            maximum: "1000";
+                            message: "Requests above this cap return to manual approval.";
+                            has-notice: false;
+
+                            edited(text) => { auto-max-per-hour = text; }
+                        }
+
+                        Button {
+                            icon: "";
+                            label: "Add Rule";
+                            importance: Importance.primary;
+                            clicked => {
+                                Callbacks.add-auto-sign-rule(
+                                    Callbacks.editing-uuid,
+                                    auto-origin,
+                                    auto-kind.to-float(),
+                                    auto-expiry-hours.to-float(),
+                                    auto-max-per-hour.to-float(),
+                                );
+                            }
+                        }
+
+                        if Callbacks.auto-sign-error != "": TextSm {
+                            text: Callbacks.auto-sign-error;
+                            color: Palette.content-negative;
+                            wrap: word-wrap;
+                        }
+
+                        if Callbacks.auto-sign-rule-count == 0: TextSm {
+                            text: "No auto-sign rules for this key.";
+                            color: Palette.content-tertiary;
+                            wrap: word-wrap;
+                        }
+
+                        for rule in Callbacks.auto-sign-rules: AutoSignRuleBlock {
+                            rule: rule;
+                            toggle-clicked(enabled) => {
+                                Callbacks.toggle-auto-sign-rule(
+                                    Callbacks.editing-uuid,
+                                    rule.rule-id,
+                                    enabled,
+                                );
+                            }
+                            delete-clicked => {
+                                delete-auto-rule-id = rule.rule-id;
+                                show-auto-rule-delete = true;
+                            }
+                        }
                     }
                 }
 
@@ -180,6 +359,26 @@ export component DetailsPagePage inherits Rectangle {
                     clicked => { show-qr = false; }
                 }
             }
+        }
+    }
+
+    if show-auto-rule-delete: ConfirmationModal {
+        icon: "alert";
+        title: "Delete auto-sign rule?";
+        text: "Matching requests will return to the normal approval screen.";
+        cancel-button-label: "Cancel";
+        confirm-button-label: "Delete";
+        critical: false;
+
+        cancel-clicked => {
+            show-auto-rule-delete = false;
+            delete-auto-rule-id = "";
+        }
+
+        confirm-clicked => {
+            show-auto-rule-delete = false;
+            Callbacks.delete-auto-sign-rule(Callbacks.editing-uuid, delete-auto-rule-id);
+            delete-auto-rule-id = "";
         }
     }
 

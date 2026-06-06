@@ -23,12 +23,12 @@ use std::sync::{Mutex, OnceLock};
 #[cfg(not(keyos))]
 mod websocket;
 #[cfg(not(keyos))]
-pub use websocket::serve as serve;
+pub use websocket::serve;
 
 #[cfg(keyos)]
 mod webusb;
 #[cfg(keyos)]
-pub use webusb::serve as serve;
+pub use webusb::serve;
 
 /// Shared, human-readable status line for the currently-running transport.
 /// Written by the transport worker; read by the UI banner poll-timer in

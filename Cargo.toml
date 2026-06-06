@@ -23,8 +23,10 @@ async-trait = "0.1"
 anyhow = "1"
 bip39 = { version = "2.2", features = ["std"] }
 hex = "0.4"
+hmac = "0.12"
 oneshot = "0.1"
 serde_json = "1"
+sha2 = "0.10"
 uuid = { version = "1", features = ["v4"] }
 
 # Nostr signer logic crates, vendored under ./logic (its own sub-workspace).

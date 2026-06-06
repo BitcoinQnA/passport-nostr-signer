@@ -14,8 +14,8 @@
 pub mod frame;
 pub mod message;
 
-pub use frame::{Defragmenter, Framer, FrameError, REPORT_SIZE, PAYLOAD_PER_REPORT};
+pub use frame::{Defragmenter, FrameError, Framer, PAYLOAD_PER_REPORT, REPORT_SIZE};
 pub use message::{
-    ErrorCode, ErrorPayload, Method, Request, Response, ResponseBody, SignEventParams,
-    UnsignedEvent, KeyInfo,
+    ErrorCode, ErrorPayload, KeyInfo, Method, Request, Response, ResponseBody, SignEventParams,
+    UnsignedEvent,
 };

@@ -5,33 +5,52 @@ Both sides implement this with types from the `protocol` crate.
 
 ## Layers
 
-1. **Transport.** USB-HID in production; WebSocket for the macOS simulator.
-   Transports carry opaque byte frames.
-2. **Framing.** Fixed 64-byte HID reports assembled into JSON blobs. Bypassed
-   on the WebSocket transport, where a single WebSocket text frame is one
-   JSON blob.
+1. **Transport.** WebUSB in production; WebSocket for the macOS simulator.
+   Transports carry UTF-8 JSON messages.
+2. **Framing.** WebUSB uses newline-delimited JSON chunked across 64-byte
+   interrupt transfers. WebSocket uses one text frame per JSON message.
 3. **Messages.** JSON requests and responses, described below.
 
 ## 1. Transport
 
-### USB-HID (production)
+### WebUSB (production)
 
-- Custom HID device. VID/PID: TBD (Foundation VID + new PID).
-- Two reports: one `Output` (host → device), one `Input` (device → host),
-  both 64 bytes.
-- Report ID: 0 (no report-ID prefix).
-- Usage page: vendor-defined (to avoid collision with FIDO on the same
-  device; FIDO keeps its existing interface).
+- Vendor-class USB interface advertised with class/subclass/protocol
+  `0xFF/0xFF/0xFF`.
+- Two interrupt endpoints: one OUT (host → device), one IN (device → host),
+  both max packet length 64 bytes.
+- WebUSB Platform Capability vendor code: `0x1E`.
+- Dedicated production VID/PID: TBD. Dev builds pair by WebUSB device picker
+  and interface-class matching.
 
 ### WebSocket (simulator)
 
 - `ws://localhost:9876` by default.
 - Text frames. One frame = one JSON message.
-- No framing layer is needed; HID framing is bypassed.
+- No newline framing layer is needed beyond the WebSocket text frame.
 
-## 2. HID framing
+## 2. WebUSB framing
 
-Each HID report is 64 bytes:
+Each WebUSB message is a single JSON blob followed by `\n`. The host and device
+split the byte stream into 64-byte interrupt transfers and reassemble until the
+newline delimiter.
+
+Receivers MUST:
+- Ignore empty lines.
+- Reject invalid UTF-8/JSON with `invalid_request`.
+- Cap a single line at 16 KiB and drop the in-progress line on overflow.
+
+Senders SHOULD:
+- Emit exactly one trailing `\n` after each JSON message.
+- Keep one request in flight per device connection unless/until the protocol
+  grows explicit multiplexing semantics.
+
+The `protocol::frame` HID report framer remains as a host-testable utility for
+older experiments, but it is not the production WebUSB wire format.
+
+### Legacy HID framing
+
+The earlier proof-of-concept used fixed 64-byte HID reports:
 
 ```
 offset  0      1    2..=3    4..=63
@@ -47,12 +66,12 @@ field   flags  rsv  len_be   payload
 
 A single-report message sets both `INIT` and `FINAL`.
 
-Receivers MUST:
+Legacy HID receivers MUST:
 - Start assembly on `INIT`, discarding any in-progress buffer.
 - Reject continuation reports that arrive without a prior `INIT`.
 - Cap total payload at 16 KiB and error out on overflow.
 
-Senders SHOULD:
+Legacy HID senders SHOULD:
 - Emit reports in order. HID guarantees in-order delivery, so no sequence
   number is needed on the wire.
 
@@ -146,7 +165,8 @@ Response: `{ "pubkey": "<hex32>" }`.
 
 ### `sign_event`
 
-Signs a NIP-01 event. Requires physical approval on the device.
+Signs a NIP-01 event. Requires physical approval on the device unless the event
+matches an owner-configured auto-sign policy stored locally on the device.
 
 ```json
 {
@@ -167,32 +187,48 @@ Signs a NIP-01 event. Requires physical approval on the device.
 
 Response: the complete signed event including `id` and `sig`.
 
+### Local auto-sign policies
+
+Auto-sign is not exposed as a wire method. Browser clients and the extension
+cannot create, edit, or delete policies.
+
+Before showing the approval screen, the device checks local policy for
+`sign_event` only. A policy matches exactly by live key UUID, normalized HTTP(S)
+origin, and event kind. Matched policies must be enabled, unexpired, and under
+their hourly usage cap. If any check fails, the request returns to the normal
+manual approval path.
+
+Policy storage is authenticated with a MAC key derived from the KeyOS app seed.
+If the policy file fails verification, auto-sign is disabled for that session
+and signing remains manual.
+
 ### `nip04_encrypt` / `nip04_decrypt`
 
 Legacy DM cryptography. `plaintext`/`ciphertext` are strings in NIP-04
-format (base64 + `?iv=` suffix).
+format (base64 + `?iv=` suffix). Both directions require physical approval on
+the device before ciphertext or plaintext is returned to the browser.
 
 ### `nip44_encrypt` / `nip44_decrypt`
 
 NIP-44 v2 cryptography used for NIP-17 DMs and NIP-46 transport.
 
-Both encrypt methods require physical approval. Decrypt methods do **not**
-(otherwise reading a DM thread would require hundreds of taps); however
-the device displays a running count of decrypt operations per origin and
-rate-limits abusive sources.
+Both encrypt and decrypt methods require physical approval. A future explicit
+per-origin DM-reading policy may relax repeated decrypt prompts, but the public
+default is fail-closed.
 
 ## 5. Security notes
 
 - The nsec never leaves the device. `get_public_key` and `list_keys` only
   surface public material.
-- Every `sign_event` and `nip*_encrypt` request shows the user:
+- Every `nip*_encrypt` and `nip*_decrypt` request shows the user:
   - the origin, if supplied,
-  - the event kind (with friendly label),
   - a content preview, truncated to the display width,
-  - the npub being used.
-- Approval decisions are not cached. Every request is confirmed unless the
-  user has opted in to a per-origin auto-approve policy (out of scope in
-  v1).
+  - the key label and peer pubkey.
+- Every `sign_event` request either shows the same approval details (origin,
+  event kind, content preview, tag count, and npub) or matches an explicit
+  on-device auto-sign rule.
+- Auto-sign rules are intentionally narrow: no wildcards, no browser-created
+  grants, exact origin and kind matching, expiry, hourly cap, and audit log.
 - The USB cable is the trust boundary. The transport layer has no
   encryption; an attacker with physical access to both the device and a
   malicious host can observe signing-request contents (though not the
