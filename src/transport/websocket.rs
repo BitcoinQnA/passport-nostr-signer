@@ -52,8 +52,7 @@ async fn handle_client<M: MasterKeySource + Send + Sync + 'static>(
         match msg {
             Message::Text(text) => {
                 let response = dispatch_text(&engine, &text).await;
-                sink.send(Message::Text(serde_json::to_string(&response)?))
-                    .await?;
+                sink.send(Message::Text(serde_json::to_string(&response)?)).await?;
             }
             Message::Binary(_) => {
                 let err = Response::err(
@@ -61,8 +60,7 @@ async fn handle_client<M: MasterKeySource + Send + Sync + 'static>(
                     ErrorCode::InvalidRequest,
                     "binary frames not supported; send JSON text",
                 );
-                sink.send(Message::Text(serde_json::to_string(&err)?))
-                    .await?;
+                sink.send(Message::Text(serde_json::to_string(&err)?)).await?;
             }
             Message::Close(_) => break,
             _ => {}

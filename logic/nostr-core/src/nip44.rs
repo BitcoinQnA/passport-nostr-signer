@@ -50,11 +50,7 @@ pub fn encrypt(sk: &SecretKey, peer: &PublicKey, plaintext: &str) -> Result<Stri
 
 /// Deterministic encryption — used by the test-vector suite. Production
 /// callers should use [`encrypt`] which samples a random nonce.
-pub fn encrypt_with_nonce(
-    conversation_key: &[u8; 32],
-    nonce: &[u8; 32],
-    plaintext: &str,
-) -> Result<String> {
+pub fn encrypt_with_nonce(conversation_key: &[u8; 32], nonce: &[u8; 32], plaintext: &str) -> Result<String> {
     let bytes = plaintext.as_bytes();
     if bytes.len() < MIN_PLAINTEXT_LEN || bytes.len() > MAX_PLAINTEXT_LEN {
         return Err(Error::Nip44("plaintext length out of range"));
@@ -109,14 +105,10 @@ pub fn decrypt_with_key(conversation_key: &[u8; 32], payload_b64: &str) -> Resul
     unpad(&padded)
 }
 
-fn derive_message_keys(
-    conversation_key: &[u8; 32],
-    nonce: &[u8; 32],
-) -> ([u8; 32], [u8; 12], [u8; 32]) {
+fn derive_message_keys(conversation_key: &[u8; 32], nonce: &[u8; 32]) -> ([u8; 32], [u8; 12], [u8; 32]) {
     let hk = Hkdf::<Sha256>::from_prk(conversation_key).expect("valid prk length");
     let mut material = [0u8; 76];
-    hk.expand(nonce, &mut material)
-        .expect("76 <= 255 * HashLen");
+    hk.expand(nonce, &mut material).expect("76 <= 255 * HashLen");
     let mut chacha_key = [0u8; 32];
     let mut chacha_nonce = [0u8; 12];
     let mut hmac_key = [0u8; 32];
@@ -151,11 +143,7 @@ fn calc_padded_len(unpadded_len: usize) -> usize {
     // next_power = next power of two >= unpadded_len
     let n = unpadded_len as u32;
     let next_power = 1u32 << (32 - (n - 1).leading_zeros());
-    let chunk: u32 = if next_power <= 256 {
-        32
-    } else {
-        next_power / 8
-    };
+    let chunk: u32 = if next_power <= 256 { 32 } else { next_power / 8 };
     let chunk = chunk as usize;
     chunk * (((unpadded_len - 1) / chunk) + 1)
 }

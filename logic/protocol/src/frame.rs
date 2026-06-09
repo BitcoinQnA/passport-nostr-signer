@@ -89,9 +89,7 @@ pub struct Defragmenter {
 }
 
 impl Defragmenter {
-    pub fn new() -> Self {
-        Self::default()
-    }
+    pub fn new() -> Self { Self::default() }
 
     /// Feed one 64-byte HID report. Returns `Ok(Some(payload))` when the
     /// message is complete; `Ok(None)` if more reports are expected;
@@ -159,34 +157,22 @@ mod tests {
     }
 
     #[test]
-    fn empty_payload() {
-        roundtrip(&[]);
-    }
+    fn empty_payload() { roundtrip(&[]); }
 
     #[test]
-    fn single_chunk_payload() {
-        roundtrip(b"hello world");
-    }
+    fn single_chunk_payload() { roundtrip(b"hello world"); }
 
     #[test]
-    fn exact_one_chunk() {
-        roundtrip(&vec![0x42u8; PAYLOAD_PER_REPORT]);
-    }
+    fn exact_one_chunk() { roundtrip(&vec![0x42u8; PAYLOAD_PER_REPORT]); }
 
     #[test]
-    fn just_over_one_chunk() {
-        roundtrip(&vec![0x42u8; PAYLOAD_PER_REPORT + 1]);
-    }
+    fn just_over_one_chunk() { roundtrip(&vec![0x42u8; PAYLOAD_PER_REPORT + 1]); }
 
     #[test]
-    fn ten_chunks() {
-        roundtrip(&vec![0xABu8; PAYLOAD_PER_REPORT * 10]);
-    }
+    fn ten_chunks() { roundtrip(&vec![0xABu8; PAYLOAD_PER_REPORT * 10]); }
 
     #[test]
-    fn large_but_bounded() {
-        roundtrip(&vec![0x7Fu8; MAX_PAYLOAD_BYTES - 1]);
-    }
+    fn large_but_bounded() { roundtrip(&vec![0x7Fu8; MAX_PAYLOAD_BYTES - 1]); }
 
     #[test]
     fn spans_more_than_256_reports() {

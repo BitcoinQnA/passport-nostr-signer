@@ -60,8 +60,7 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
         Ok(k) => Arc::new(Mutex::new(k)),
         Err(e) => {
             log::error!("keystore init failed: {e}");
-            ui.global::<Callbacks>()
-                .set_server_status(format!("keystore init error: {e}").into());
+            ui.global::<Callbacks>().set_server_status(format!("keystore init error: {e}").into());
             ui.run().expect("UI running");
             return;
         }
@@ -86,8 +85,7 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
     let selected_path = data_dir.join("selected.txt");
 
     // Shared slot for the currently-awaiting approval decision.
-    let pending_tx: Arc<Mutex<Option<oneshot::Sender<ApprovalDecision>>>> =
-        Arc::new(Mutex::new(None));
+    let pending_tx: Arc<Mutex<Option<oneshot::Sender<ApprovalDecision>>>> = Arc::new(Mutex::new(None));
 
     // Wire UI → Rust
     {
@@ -112,10 +110,8 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
     }
 
     // Approver plugged into the engine.
-    let approver: ArcApprover = Arc::new(SlintApprover {
-        ui_weak: ui.as_weak(),
-        pending_tx: pending_tx.clone(),
-    });
+    let approver: ArcApprover =
+        Arc::new(SlintApprover { ui_weak: ui.as_weak(), pending_tx: pending_tx.clone() });
 
     let engine = Arc::new(Engine::new(
         keystore,
@@ -135,26 +131,22 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
                 let mut uuid = [0u8; 16];
                 uuid.copy_from_slice(&bytes);
                 if engine.select(uuid) {
-                    ui.global::<Callbacks>()
-                        .set_selected_uuid(prev.trim().to_string().into());
+                    ui.global::<Callbacks>().set_selected_uuid(prev.trim().to_string().into());
                 }
             }
         }
     }
     // If nothing restored, default to the first key.
     if engine.selected().is_none() {
-        if let Some((uuid_hex, _, _, _, _)) = engine
-            .key_list()
-            .into_iter()
-            .find(|(_, _, _, _, archived)| !archived)
+        if let Some((uuid_hex, _, _, _, _)) =
+            engine.key_list().into_iter().find(|(_, _, _, _, archived)| !archived)
         {
             if let Ok(bytes) = hex::decode(&uuid_hex) {
                 if bytes.len() == 16 {
                     let mut uuid = [0u8; 16];
                     uuid.copy_from_slice(&bytes);
                     if engine.select(uuid) {
-                        ui.global::<Callbacks>()
-                            .set_selected_uuid(uuid_hex.clone().into());
+                        ui.global::<Callbacks>().set_selected_uuid(uuid_hex.clone().into());
                         let _ = std::fs::write(&selected_path, &uuid_hex);
                     }
                 }
@@ -174,8 +166,7 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
                     uuid.copy_from_slice(&bytes);
                     if engine.select(uuid) {
                         if let Some(ui) = weak.upgrade() {
-                            ui.global::<Callbacks>()
-                                .set_selected_uuid(uuid_hex.as_str().to_string().into());
+                            ui.global::<Callbacks>().set_selected_uuid(uuid_hex.as_str().to_string().into());
                         }
                         let _ = std::fs::write(&selected_path, uuid_hex.as_str());
                         log::info!("selected key {uuid_hex}");
@@ -197,103 +188,95 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
         let engine = engine.clone();
         let weak = ui.as_weak();
         let selected_path = selected_path.clone();
-        ui.global::<Callbacks>()
-            .on_save_new(move |label, color, method, account| {
-                let Some(ui) = weak.upgrade() else { return };
-                let label = label.as_str().trim().to_string();
-                if let Some(err) = validate_label(&label) {
-                    ui.global::<Callbacks>().set_editing_error(err.into());
-                    return;
-                }
-                let color_u8 = color.clamp(0, 255) as u8;
+        ui.global::<Callbacks>().on_save_new(move |label, color, method, account| {
+            let Some(ui) = weak.upgrade() else { return };
+            let label = label.as_str().trim().to_string();
+            if let Some(err) = validate_label(&label) {
+                ui.global::<Callbacks>().set_editing_error(err.into());
+                return;
+            }
+            let color_u8 = color.clamp(0, 255) as u8;
 
-                let method = method.as_str();
-                let sk = match method {
-                    "generate" => match derive_nostr_from_device_seed(account.max(0) as u32) {
-                        Ok(sk) => sk,
-                        Err(e) => {
-                            log::warn!("generate failed: {e}");
-                            ui.global::<Callbacks>()
-                                .set_editing_error(format!("{e}").into());
-                            return;
-                        }
-                    },
-                    "qr" => {
-                        let scanned = match scan_nsec_via_qr() {
-                            Ok(Some(s)) => s,
-                            Ok(None) => return, // cancelled
-                            Err(e) => {
-                                log::warn!("qr scan failed: {e}");
-                                ui.global::<Callbacks>()
-                                    .set_editing_error(format!("{e}").into());
-                                return;
-                            }
-                        };
-                        match parse_nsec_or_hex(&scanned) {
-                            Ok(sk) => sk,
-                            Err(msg) => {
-                                ui.global::<Callbacks>().set_editing_error(msg.into());
-                                return;
-                            }
-                        }
-                    }
-                    other => {
-                        log::warn!("unknown save-new method: {other}");
+            let method = method.as_str();
+            let sk = match method {
+                "generate" => match derive_nostr_from_device_seed(account.max(0) as u32) {
+                    Ok(sk) => sk,
+                    Err(e) => {
+                        log::warn!("generate failed: {e}");
+                        ui.global::<Callbacks>().set_editing_error(format!("{e}").into());
                         return;
                     }
-                };
-
-                match engine.add_key(label, &sk, color_u8) {
-                    Ok(uuid_hex) => {
-                        refresh_keys_ui(&ui, &engine);
-                        let _ = std::fs::write(&selected_path, &uuid_hex);
-                        ui.global::<Callbacks>().set_selected_uuid(uuid_hex.into());
-                        ui.global::<Callbacks>().set_editing_error("".into());
-                        ui.global::<Navigate>().invoke_backward();
-                    }
-                    Err(e) => {
-                        ui.global::<Callbacks>()
-                            .set_editing_error(e.to_string().into());
+                },
+                "qr" => {
+                    let scanned = match scan_nsec_via_qr() {
+                        Ok(Some(s)) => s,
+                        Ok(None) => return, // cancelled
+                        Err(e) => {
+                            log::warn!("qr scan failed: {e}");
+                            ui.global::<Callbacks>().set_editing_error(format!("{e}").into());
+                            return;
+                        }
+                    };
+                    match parse_nsec_or_hex(&scanned) {
+                        Ok(sk) => sk,
+                        Err(msg) => {
+                            ui.global::<Callbacks>().set_editing_error(msg.into());
+                            return;
+                        }
                     }
                 }
-            });
+                other => {
+                    log::warn!("unknown save-new method: {other}");
+                    return;
+                }
+            };
+
+            match engine.add_key(label, &sk, color_u8) {
+                Ok(uuid_hex) => {
+                    refresh_keys_ui(&ui, &engine);
+                    let _ = std::fs::write(&selected_path, &uuid_hex);
+                    ui.global::<Callbacks>().set_selected_uuid(uuid_hex.into());
+                    ui.global::<Callbacks>().set_editing_error("".into());
+                    ui.global::<Navigate>().invoke_backward();
+                }
+                Err(e) => {
+                    ui.global::<Callbacks>().set_editing_error(e.to_string().into());
+                }
+            }
+        });
     }
 
     // Save edits to an existing identity.
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
-        ui.global::<Callbacks>()
-            .on_edit_save(move |uuid_hex, new_label, new_color| {
-                let Some(ui) = weak.upgrade() else { return };
-                let label = new_label.as_str().trim().to_string();
-                if let Some(err) = validate_label(&label) {
-                    ui.global::<Callbacks>().set_editing_error(err.into());
+        ui.global::<Callbacks>().on_edit_save(move |uuid_hex, new_label, new_color| {
+            let Some(ui) = weak.upgrade() else { return };
+            let label = new_label.as_str().trim().to_string();
+            if let Some(err) = validate_label(&label) {
+                ui.global::<Callbacks>().set_editing_error(err.into());
+                return;
+            }
+            let uuid = match parse_uuid_arg(uuid_hex.as_str()) {
+                Some(u) => u,
+                None => {
+                    ui.global::<Callbacks>().set_editing_error("Bad uuid.".into());
                     return;
                 }
-                let uuid = match parse_uuid_arg(uuid_hex.as_str()) {
-                    Some(u) => u,
-                    None => {
-                        ui.global::<Callbacks>()
-                            .set_editing_error("Bad uuid.".into());
-                        return;
-                    }
-                };
-                let color_u8 = new_color.clamp(0, 255) as u8;
-                if let Err(e) = engine.rename(&uuid, label) {
-                    ui.global::<Callbacks>()
-                        .set_editing_error(e.to_string().into());
-                    return;
-                }
-                if let Err(e) = engine.set_color(&uuid, color_u8) {
-                    ui.global::<Callbacks>()
-                        .set_editing_error(e.to_string().into());
-                    return;
-                }
-                refresh_keys_ui(&ui, &engine);
-                ui.global::<Callbacks>().set_editing_error("".into());
-                ui.global::<Navigate>().invoke_backward();
-            });
+            };
+            let color_u8 = new_color.clamp(0, 255) as u8;
+            if let Err(e) = engine.rename(&uuid, label) {
+                ui.global::<Callbacks>().set_editing_error(e.to_string().into());
+                return;
+            }
+            if let Err(e) = engine.set_color(&uuid, color_u8) {
+                ui.global::<Callbacks>().set_editing_error(e.to_string().into());
+                return;
+            }
+            refresh_keys_ui(&ui, &engine);
+            ui.global::<Callbacks>().set_editing_error("".into());
+            ui.global::<Navigate>().invoke_backward();
+        });
     }
 
     // Archive a key.
@@ -358,11 +341,10 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
-        ui.global::<Callbacks>()
-            .on_refresh_auto_sign_rules(move |uuid_hex| {
-                let Some(ui) = weak.upgrade() else { return };
-                refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
-            });
+        ui.global::<Callbacks>().on_refresh_auto_sign_rules(move |uuid_hex| {
+            let Some(ui) = weak.upgrade() else { return };
+            refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
+        });
     }
     {
         let engine = engine.clone();
@@ -371,8 +353,7 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
             move |uuid_hex, origin, kind, expiry_hours, max_per_hour| {
                 let Some(ui) = weak.upgrade() else { return };
                 let Some(uuid) = parse_uuid_arg(uuid_hex.as_str()) else {
-                    ui.global::<Callbacks>()
-                        .set_auto_sign_error("Bad key uuid.".into());
+                    ui.global::<Callbacks>().set_auto_sign_error("Bad key uuid.".into());
                     return;
                 };
                 let kind = match ui_u32(kind, "Kind", 0, i32::MAX as u32) {
@@ -418,46 +399,42 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
-        ui.global::<Callbacks>()
-            .on_delete_auto_sign_rule(move |uuid_hex, rule_id_hex| {
-                let Some(ui) = weak.upgrade() else { return };
-                let Some(rule_id) = parse_uuid_arg(rule_id_hex.as_str()) else {
-                    ui.global::<Callbacks>()
-                        .set_auto_sign_error("Bad auto-sign rule id.".into());
-                    return;
-                };
-                match engine.delete_auto_sign_rule(&rule_id) {
-                    Ok(()) => {
-                        ui.global::<Callbacks>().set_auto_sign_error("".into());
-                        refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
-                    }
-                    Err(e) => {
-                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
-                    }
+        ui.global::<Callbacks>().on_delete_auto_sign_rule(move |uuid_hex, rule_id_hex| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(rule_id) = parse_uuid_arg(rule_id_hex.as_str()) else {
+                ui.global::<Callbacks>().set_auto_sign_error("Bad auto-sign rule id.".into());
+                return;
+            };
+            match engine.delete_auto_sign_rule(&rule_id) {
+                Ok(()) => {
+                    ui.global::<Callbacks>().set_auto_sign_error("".into());
+                    refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
                 }
-            });
+                Err(e) => {
+                    ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                }
+            }
+        });
     }
     {
         let engine = engine.clone();
         let weak = ui.as_weak();
-        ui.global::<Callbacks>()
-            .on_toggle_auto_sign_rule(move |uuid_hex, rule_id_hex, enabled| {
-                let Some(ui) = weak.upgrade() else { return };
-                let Some(rule_id) = parse_uuid_arg(rule_id_hex.as_str()) else {
-                    ui.global::<Callbacks>()
-                        .set_auto_sign_error("Bad auto-sign rule id.".into());
-                    return;
-                };
-                match engine.set_auto_sign_enabled(&rule_id, enabled) {
-                    Ok(()) => {
-                        ui.global::<Callbacks>().set_auto_sign_error("".into());
-                        refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
-                    }
-                    Err(e) => {
-                        ui.global::<Callbacks>().set_auto_sign_error(e.into());
-                    }
+        ui.global::<Callbacks>().on_toggle_auto_sign_rule(move |uuid_hex, rule_id_hex, enabled| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(rule_id) = parse_uuid_arg(rule_id_hex.as_str()) else {
+                ui.global::<Callbacks>().set_auto_sign_error("Bad auto-sign rule id.".into());
+                return;
+            };
+            match engine.set_auto_sign_enabled(&rule_id, enabled) {
+                Ok(()) => {
+                    ui.global::<Callbacks>().set_auto_sign_error("".into());
+                    refresh_auto_sign_ui(&ui, &engine, uuid_hex.as_str());
                 }
-            });
+                Err(e) => {
+                    ui.global::<Callbacks>().set_auto_sign_error(e.into());
+                }
+            }
+        });
     }
 
     // Permanently delete an archived key.
@@ -503,10 +480,7 @@ fn app_main(_cx: AppContext, ui: AppWindow) {
         slint_keyos_platform::slint::TimerMode::Repeated,
         Duration::from_millis(500),
         move || {
-            let current = transport::status()
-                .lock()
-                .map(|g| g.clone())
-                .unwrap_or_default();
+            let current = transport::status().lock().map(|g| g.clone()).unwrap_or_default();
             if current != last_shown {
                 last_shown = current.clone();
                 if let Some(ui) = weak_for_ready.upgrade() {
@@ -530,11 +504,7 @@ fn run_transport(
     engine: std::sync::Arc<Engine<KeyOsAppSeedSource>>,
     weak_for_status: slint_keyos_platform::slint::Weak<AppWindow>,
 ) {
-    let rt = match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .worker_threads(2)
-        .build()
-    {
+    let rt = match tokio::runtime::Builder::new_multi_thread().enable_all().worker_threads(2).build() {
         Ok(rt) => rt,
         Err(e) => {
             log::error!("tokio runtime build failed: {e}");
@@ -602,8 +572,7 @@ impl Approver for SlintApprover {
         let scheduled = slint_keyos_platform::slint::invoke_from_event_loop(move || {
             if let Some(ui) = weak.upgrade() {
                 populate_approval(&ui, &req_for_ui);
-                ui.global::<Navigate>()
-                    .invoke_approve_page(NavigateOptions::default());
+                ui.global::<Navigate>().invoke_approve_page(NavigateOptions::default());
             }
         });
         if scheduled.is_err() {
@@ -630,15 +599,13 @@ struct ApprovalFuture {
 
 impl ApprovalFuture {
     fn new(rx: oneshot::Receiver<ApprovalDecision>, timeout: Duration) -> Self {
-        Self {
-            rx,
-            deadline: Instant::now() + timeout,
-        }
+        Self { rx, deadline: Instant::now() + timeout }
     }
 }
 
 impl core::future::Future for ApprovalFuture {
     type Output = ApprovalDecision;
+
     fn poll(
         self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
@@ -660,108 +627,70 @@ impl core::future::Future for ApprovalFuture {
                 });
                 core::task::Poll::Pending
             }
-            Err(oneshot::TryRecvError::Disconnected) => {
-                core::task::Poll::Ready(ApprovalDecision::Reject)
-            }
+            Err(oneshot::TryRecvError::Disconnected) => core::task::Poll::Ready(ApprovalDecision::Reject),
         }
     }
 }
 
 fn populate_approval(ui: &AppWindow, req: &ApprovalRequest) {
-    let (
-        origin,
-        key_label,
-        key_short,
-        peer_short,
-        kind,
-        kind_label,
-        tag_count,
-        content_label,
-        content,
-    ) = match req {
-        ApprovalRequest::SignEvent {
-            origin,
-            key_label,
-            npub_hex,
-            kind,
-            content_preview,
-            tag_count,
-        } => (
-            origin.clone().unwrap_or_default(),
-            key_label.clone(),
-            short_hex(npub_hex),
-            "".to_string(),
-            *kind as i32,
-            kind_friendly(*kind).to_string(),
-            *tag_count as i32,
-            "Content".to_string(),
-            content_preview.clone(),
-        ),
-        ApprovalRequest::Nip04Encrypt {
-            origin,
-            key_label,
-            peer_pubkey_hex,
-            plaintext_preview,
-        } => (
-            origin.clone().unwrap_or_default(),
-            key_label.clone(),
-            "".to_string(),
-            short_hex(peer_pubkey_hex),
-            0,
-            "NIP-04 encrypt".to_string(),
-            0,
-            "Plaintext".to_string(),
-            plaintext_preview.clone(),
-        ),
-        ApprovalRequest::Nip44Encrypt {
-            origin,
-            key_label,
-            peer_pubkey_hex,
-            plaintext_preview,
-        } => (
-            origin.clone().unwrap_or_default(),
-            key_label.clone(),
-            "".to_string(),
-            short_hex(peer_pubkey_hex),
-            0,
-            "NIP-44 encrypt".to_string(),
-            0,
-            "Plaintext".to_string(),
-            plaintext_preview.clone(),
-        ),
-        ApprovalRequest::Nip04Decrypt {
-            origin,
-            key_label,
-            peer_pubkey_hex,
-            ciphertext_preview,
-        } => (
-            origin.clone().unwrap_or_default(),
-            key_label.clone(),
-            "".to_string(),
-            short_hex(peer_pubkey_hex),
-            0,
-            "NIP-04 decrypt".to_string(),
-            0,
-            "Ciphertext".to_string(),
-            ciphertext_preview.clone(),
-        ),
-        ApprovalRequest::Nip44Decrypt {
-            origin,
-            key_label,
-            peer_pubkey_hex,
-            ciphertext_preview,
-        } => (
-            origin.clone().unwrap_or_default(),
-            key_label.clone(),
-            "".to_string(),
-            short_hex(peer_pubkey_hex),
-            0,
-            "NIP-44 decrypt".to_string(),
-            0,
-            "Ciphertext".to_string(),
-            ciphertext_preview.clone(),
-        ),
-    };
+    let (origin, key_label, key_short, peer_short, kind, kind_label, tag_count, content_label, content) =
+        match req {
+            ApprovalRequest::SignEvent { origin, key_label, npub_hex, kind, content_preview, tag_count } => (
+                origin.clone().unwrap_or_default(),
+                key_label.clone(),
+                short_hex(npub_hex),
+                "".to_string(),
+                *kind as i32,
+                kind_friendly(*kind).to_string(),
+                *tag_count as i32,
+                "Content".to_string(),
+                content_preview.clone(),
+            ),
+            ApprovalRequest::Nip04Encrypt { origin, key_label, peer_pubkey_hex, plaintext_preview } => (
+                origin.clone().unwrap_or_default(),
+                key_label.clone(),
+                "".to_string(),
+                short_hex(peer_pubkey_hex),
+                0,
+                "NIP-04 encrypt".to_string(),
+                0,
+                "Plaintext".to_string(),
+                plaintext_preview.clone(),
+            ),
+            ApprovalRequest::Nip44Encrypt { origin, key_label, peer_pubkey_hex, plaintext_preview } => (
+                origin.clone().unwrap_or_default(),
+                key_label.clone(),
+                "".to_string(),
+                short_hex(peer_pubkey_hex),
+                0,
+                "NIP-44 encrypt".to_string(),
+                0,
+                "Plaintext".to_string(),
+                plaintext_preview.clone(),
+            ),
+            ApprovalRequest::Nip04Decrypt { origin, key_label, peer_pubkey_hex, ciphertext_preview } => (
+                origin.clone().unwrap_or_default(),
+                key_label.clone(),
+                "".to_string(),
+                short_hex(peer_pubkey_hex),
+                0,
+                "NIP-04 decrypt".to_string(),
+                0,
+                "Ciphertext".to_string(),
+                ciphertext_preview.clone(),
+            ),
+            ApprovalRequest::Nip44Decrypt { origin, key_label, peer_pubkey_hex, ciphertext_preview } => (
+                origin.clone().unwrap_or_default(),
+                key_label.clone(),
+                "".to_string(),
+                short_hex(peer_pubkey_hex),
+                0,
+                "NIP-44 decrypt".to_string(),
+                0,
+                "Ciphertext".to_string(),
+                ciphertext_preview.clone(),
+            ),
+        };
     let state = ApprovalState {
         active: true,
         action: req.action().into(),
@@ -790,12 +719,11 @@ fn refresh_keys_ui<M: keystore::MasterKeySource>(ui: &AppWindow, engine: &Engine
             } else {
                 live += 1;
             }
-            let npub_full = match PublicKey::from_hex(&npub_hex)
-                .and_then(|pk| nostr_core::bech32::encode_npub(&pk))
-            {
-                Ok(s) => s,
-                Err(_) => npub_hex.clone(),
-            };
+            let npub_full =
+                match PublicKey::from_hex(&npub_hex).and_then(|pk| nostr_core::bech32::encode_npub(&pk)) {
+                    Ok(s) => s,
+                    Err(_) => npub_hex.clone(),
+                };
             StoredKey {
                 uuid: uuid.into(),
                 label: label.into(),
@@ -812,11 +740,7 @@ fn refresh_keys_ui<M: keystore::MasterKeySource>(ui: &AppWindow, engine: &Engine
     ui.global::<Callbacks>().set_archived_count(archived);
 }
 
-fn refresh_auto_sign_ui<M: keystore::MasterKeySource>(
-    ui: &AppWindow,
-    engine: &Engine<M>,
-    uuid_hex: &str,
-) {
+fn refresh_auto_sign_ui<M: keystore::MasterKeySource>(ui: &AppWindow, engine: &Engine<M>, uuid_hex: &str) {
     let Some(uuid) = parse_uuid_arg(uuid_hex) else {
         let model = ModelRc::new(VecModel::from(Vec::<AutoSignRuleRow>::new()));
         ui.global::<Callbacks>().set_auto_sign_rules(model);
@@ -913,10 +837,7 @@ fn parse_uuid_arg(s: &str) -> Option<[u8; 16]> {
 }
 
 fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 fn clear_approval(ui_weak: &slint_keyos_platform::slint::Weak<AppWindow>) {
@@ -949,13 +870,11 @@ fn autosign_mac_key() -> Option<[u8; 32]> {
 
 #[cfg(not(target_os = "xous"))]
 fn data_dir() -> PathBuf {
-    dirs::home_dir()
-        .map(|h| h.join(DATA_SUBDIR))
-        .unwrap_or_else(|| {
-            let mut p = std::env::temp_dir();
-            p.push(DATA_SUBDIR);
-            p
-        })
+    dirs::home_dir().map(|h| h.join(DATA_SUBDIR)).unwrap_or_else(|| {
+        let mut p = std::env::temp_dir();
+        p.push(DATA_SUBDIR);
+        p
+    })
 }
 
 #[cfg(target_os = "xous")]
@@ -984,8 +903,8 @@ fn derive_nostr_from_device_seed(account: u32) -> anyhow::Result<SecretKey> {
         .seed()
         .map_err(|_| anyhow::anyhow!("access denied to device seed (is the device set up?)"))?
         .ok_or_else(|| anyhow::anyhow!("no seed on this device"))?;
-    let mnemonic = bip39::Mnemonic::from_entropy(seed.bytes())
-        .map_err(|e| anyhow::anyhow!("seed → mnemonic: {e}"))?;
+    let mnemonic =
+        bip39::Mnemonic::from_entropy(seed.bytes()).map_err(|e| anyhow::anyhow!("seed → mnemonic: {e}"))?;
     let sk = nostr_core::nip06::derive(&mnemonic.to_string(), "", account)
         .map_err(|e| anyhow::anyhow!("nip06 derive: {e}"))?;
     Ok(sk)
@@ -1003,21 +922,19 @@ fn scan_nsec_via_qr() -> anyhow::Result<Option<String>> {
         return Ok(None);
     };
     match result {
-        ScanQrResult::Qr(data) => {
+        ScanQrResult::Qr { data, .. } => {
             let s = std::str::from_utf8(&data)
                 .map_err(|e| anyhow::anyhow!("qr payload not utf-8: {e}"))?
                 .trim()
                 .to_string();
             Ok(Some(s))
         }
-        ScanQrResult::Ur2(_, _) => {
+        ScanQrResult::Ur2 { .. } => {
             // UR2 isn't used for nsec; surface an empty result so the UI
             // doesn't think the scan succeeded with junk.
             Ok(None)
         }
-        ScanQrResult::LeftClicked | ScanQrResult::RightClicked | ScanQrResult::ButtonClicked => {
-            Ok(None)
-        }
+        ScanQrResult::LeftClicked | ScanQrResult::RightClicked | ScanQrResult::ButtonClicked => Ok(None),
     }
 }
 
