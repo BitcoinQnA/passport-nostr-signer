@@ -1,0 +1,256 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import { Images, Theme } from "@ui/theme.slint";
+export { Images }
+
+export global Size {
+    out property <length> zero: 0px;
+    out property <length> sz0_25: 1px;
+    out property <length> sz0_5: 2px;
+    out property <length> sz1: 4px;
+    out property <length> sz2: 8px;
+    out property <length> sz3: 12px;
+    out property <length> sz4: 16px;
+    out property <length> sz5: 20px;
+    out property <length> sz6: 24px;
+    out property <length> sz7: 28px;
+    out property <length> sz8: 32px;
+    out property <length> sz9: 36px;
+    out property <length> sz10: 40px;
+    out property <length> sz11: 44px;
+    out property <length> sz12: 48px;
+    out property <length> sz13: 52px;
+    out property <length> sz14: 56px;
+    out property <length> sz15: 60px;
+    out property <length> sz16: 64px;
+}
+
+export global UISize {
+    out property <length> screen-width: 480px;
+    out property <length> screen-height: 800px;
+    out property <length> control-center-status-bar-height: Size.sz10;
+    out property <length> app-window-height: screen-height - control-center-status-bar-height;
+    out property <length> popup-menu-width: 314px;
+    out property <length> popup-menu-y: 50px;
+    out property <length> modal-width: 424px;
+}
+
+export enum Importance {
+    primary,
+    secondary,
+    tertiary,
+    notice,
+    negative,
+    normal,
+    white,
+}
+
+@rust-attr(repr(u8))
+export enum Palettes {
+    light,
+    dark,
+}
+
+export global CurrentTheme {
+    in-out property <Palettes> palette: Palettes.light;
+    out property <bool> is-dark: palette == Palettes.dark;
+    out property <bool> is-light: palette == Palettes.light;
+}
+
+export global Palette {
+    out property <brush> content-button: #ffffffff;
+    out property <brush> content-button-disabled: #ffffff99;
+    out property <brush> content-primary: CurrentTheme.is-dark ? #ffffffff : #231f20ff;
+    out property <brush> content-secondary: CurrentTheme.is-dark ? #d5d4d5ff : #514d4fff;
+    out property <brush> content-tertiary: CurrentTheme.is-dark ? #959394ff : #767374ff;
+    out property <brush> content-primary-inverse: CurrentTheme.is-dark ? #231f20ff : #ffffffff;
+    out property <brush> content-secondary-inverse: CurrentTheme.is-dark ? #514d4fff : #d5d4d5ff;
+    out property <brush> content-tertiary-inverse: CurrentTheme.is-dark ? #767374ff : #959394ff;
+    out property <brush> content-disabled: #959394ff;
+    out property <brush> content-brand: Theme.palette-primary;
+    out property <brush> content-link: Theme.palette-primary;
+    out property <brush> content-link-pressed: Theme.palette-primary-pressed;
+    out property <brush> content-notice: #d97706ff;
+    out property <brush> content-notice-bold: #b45309ff;
+    out property <brush> content-negative: Theme.palette-danger;
+    out property <brush> content-negative-bold: #b52424ff;
+    out property <brush> content-positive: Theme.color-success;
+    out property <brush> content-positive-bold: #15803dff;
+
+    out property <brush> background-primary: CurrentTheme.is-dark ? #111111ff : Theme.palette-background;
+    out property <brush> background-primary-alternative: CurrentTheme.is-dark ? #2d292bff : #f3f2f2ff;
+    out property <brush> background-hover: CurrentTheme.is-dark ? #3b3839ff : #e3e2e2ff;
+    out property <brush> background-pressed: CurrentTheme.is-dark ? #4a4648ff : #d5d4d5ff;
+    out property <brush> background-selected: #009db926;
+    out property <brush> background-disabled: CurrentTheme.is-dark ? #3b3839ff : #e3e2e2ff;
+    out property <brush> background-brand: Theme.palette-primary;
+    out property <brush> background-brand-hover: Theme.color-primary-light;
+    out property <brush> background-brand-pressed: Theme.palette-primary-pressed;
+    out property <brush> background-brand-disabled: #009db966;
+    out property <brush> background-notice: #d97706ff;
+    out property <brush> background-notice-subtle: #d9770626;
+    out property <brush> background-negative: Theme.palette-danger;
+    out property <brush> background-negative-subtle: #ff333326;
+    out property <brush> background-positive: Theme.color-success;
+    out property <brush> background-positive-subtle: #16a34a26;
+
+    out property <brush> border-primary: CurrentTheme.is-dark ? #767374ff : #d5d4d5ff;
+    out property <brush> border-secondary: CurrentTheme.is-dark ? #514d4fff : #e3e2e2ff;
+    out property <brush> border-tertiary: CurrentTheme.is-dark ? #3b3839ff : #f3f2f2ff;
+    out property <brush> border-disabled: #95939466;
+    out property <brush> border-brand: Theme.palette-primary;
+    out property <brush> border-focus: Theme.palette-primary;
+    out property <brush> border-notice: #d97706ff;
+    out property <brush> border-negative: Theme.palette-danger;
+    out property <brush> border-positive: Theme.color-success;
+
+    out property <brush> transparent: #ffffff00;
+    out property <brush> black: #000000ff;
+    out property <brush> white: #ffffffff;
+    out property <brush> overlay: #111111e6;
+    out property <brush> overlay-50: #11111180;
+}
+
+@rust-attr(repr(u8))
+export enum GradientDirection {
+    none,
+    vertical,
+    horizontal,
+    diagonal-falling,
+    diagonal-rising,
+    radial,
+}
+
+export struct GradientStop {
+    color: color,
+    stop: percent,
+}
+
+@rust-attr(repr(u8))
+export enum CardColor {
+    dark-grey,
+    purple,
+    green,
+    pine,
+    light-copper,
+    dark-copper,
+    teal,
+    blue,
+    orange,
+    red,
+}
+
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
+export enum ResultLevel {
+    info,
+    error,
+}
+
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
+export struct CallbackResult {
+    level: ResultLevel,
+    success: bool,
+    text: string,
+    title: string,
+}
+
+export global Utils {
+    pure callback color-to-hex(color) -> string;
+    pure callback percent-to-string(percent, int) -> string;
+    pure callback string-to-percent(string) -> percent;
+    pure callback qrcode(string, color, color) -> image;
+    pure callback qrcode-parts(string, string, int) -> [string];
+    pure callback index-of([string], string) -> int;
+    pure callback string-length(string) -> int;
+    pure callback currency-symbol(string) -> string;
+    pure callback split(string, string) -> [string];
+    pure callback split-by-length(string, int) -> [string];
+    pure callback join([string], string) -> string;
+    pure callback arc(length, length, float, float, float, color) -> image;
+    pure callback frame(length, length, length, [float], GradientDirection, [GradientStop], length, color) -> image;
+    pure callback panel(length, length, length, color, color, length, color) -> image;
+    pure callback line-card(length, length, color, [GradientStop], length, length, [GradientStop], length, [GradientStop], string) -> image;
+    pure callback fill-array(int, int, int, int) -> [int];
+    pure callback loader(length, int, color, color) -> image;
+    pure callback circular-progress(length, int, color, color, float) -> image;
+    pure callback long_text(string) -> string;
+    pure callback round_image(image, length, length, length, length, length) -> image;
+    pure callback round_image_scaling(image, length, length, length) -> image;
+    pure callback hue-slider(length, length, bool) -> image;
+    pure callback color-palette(length, length, color) -> image;
+    pure callback pick-color(image, length, length) -> color;
+    pure callback get-hsv(color) -> [float];
+    pure callback get-rgb(color) -> [int];
+    pure callback color-from-hsl(float, float, float, float) -> color;
+    pure callback color-from-rgb(int, int, int, int) -> color;
+    pure callback shorten-string(string, int) -> string;
+    pure callback check-bounds(string, string, string) -> string;
+    pure callback increment-string(string) -> string;
+    pure callback decrement-string(string) -> string;
+    pure callback filter-special-characters(string) -> string;
+
+    pure public function index-to-card-color(index: int) -> CardColor {
+        if index == 0 { return CardColor.purple; }
+        if index == 1 { return CardColor.green; }
+        if index == 2 { return CardColor.pine; }
+        if index == 3 { return CardColor.light-copper; }
+        if index == 4 { return CardColor.dark-copper; }
+        if index == 5 { return CardColor.teal; }
+        if index == 6 { return CardColor.blue; }
+        if index == 7 { return CardColor.orange; }
+        if index == 8 { return CardColor.red; }
+        return CardColor.purple;
+    }
+
+    pure public function get-card-bg-color(color: CardColor) -> brush {
+        if color == CardColor.dark-grey { return #514d4fff; }
+        if color == CardColor.purple { return #7c3aedff; }
+        if color == CardColor.green { return #16a34aff; }
+        if color == CardColor.pine { return #047857ff; }
+        if color == CardColor.light-copper { return #b7791fff; }
+        if color == CardColor.dark-copper { return #92400eff; }
+        if color == CardColor.teal { return #0d9488ff; }
+        if color == CardColor.blue { return #2563ebff; }
+        if color == CardColor.orange { return #ea580cff; }
+        if color == CardColor.red { return #dc2626ff; }
+        return #2563ebff;
+    }
+
+    pure public function get-card-line-top-color(color: CardColor) -> brush {
+        return get-card-bg-color(color).brighter(0.25);
+    }
+
+    pure public function get-card-line-bottom-color(color: CardColor) -> brush {
+        return get-card-bg-color(color).darker(0.25);
+    }
+
+    pure public function get-card-color-picker-color(color: CardColor) -> brush {
+        return get-card-bg-color(color);
+    }
+
+    pure public function button-background(importance: Importance, pressed: bool, enabled: bool) -> brush {
+        if !enabled { return importance == Importance.primary ? Palette.background-brand-disabled : Palette.background-disabled; }
+        if pressed {
+            if importance == Importance.primary { return Palette.background-brand-pressed; }
+            if importance == Importance.secondary { return Palette.background-pressed; }
+            if importance == Importance.negative { return Palette.content-negative-bold; }
+            return Palette.transparent;
+        }
+        if importance == Importance.primary { return Palette.background-brand; }
+        if importance == Importance.secondary { return Palette.background-primary-alternative; }
+        if importance == Importance.negative { return Palette.background-negative; }
+        if importance == Importance.notice { return Palette.background-notice; }
+        return Palette.transparent;
+    }
+
+    pure public function button-foreground(importance: Importance, pressed: bool, enabled: bool) -> brush {
+        if !enabled { return Palette.content-disabled; }
+        if importance == Importance.primary || importance == Importance.negative || importance == Importance.notice {
+            return Palette.content-button;
+        }
+        if importance == Importance.tertiary { return pressed ? Palette.content-link-pressed : Palette.content-link; }
+        if importance == Importance.white { return Palette.white; }
+        return Palette.content-primary;
+    }
+}

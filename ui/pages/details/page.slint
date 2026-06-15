@@ -3,9 +3,9 @@
 
 import { AppHeader, Button, ButtonSection, IconButton, HeadingSm, TextSm, TextMd,
          BasePage, PageBody, ContentSection, ConfirmationModal, QrCodeCard,
-         ShowHide, TitledInput } from "@ui/widgets.slint";
-import { EditPageVersion } from "@ui/pages.slint";
-import { Importance, Palette, Size } from "@ui/theme.slint";
+         ShowHide, TitledInput } from "../../compat/widgets.slint";
+import { EditPageVersion } from "../../compat/pages.slint";
+import { Importance, Palette, Size } from "../../compat/theme.slint";
 import { AutoSignRuleRow, Callbacks } from "../../callbacks.slint";
 import { Navigate } from "../../gen/navigate.slint";
 
@@ -305,7 +305,7 @@ export component DetailsPagePage inherits Rectangle {
                     if !is-active: Button {
                         icon: "";
                         label: "Use This Key";
-                        importance: primary;
+                        importance: Importance.primary;
                         clicked => {
                             Callbacks.select-key(Callbacks.editing-uuid);
                             Navigate.backward();
@@ -315,7 +315,7 @@ export component DetailsPagePage inherits Rectangle {
                     Button {
                         icon: "edit";
                         label: "Edit Details";
-                        importance: secondary;
+                        importance: Importance.secondary;
                         clicked => {
                             Navigate.edit-page({ version: EditPageVersion.edit }, { });
                         }
@@ -346,7 +346,7 @@ export component DetailsPagePage inherits Rectangle {
 
             TextSm {
                 text: Callbacks.editing-npub;
-                color: white;
+                color: Palette.white;
                 horizontal-alignment: center;
                 wrap: char-wrap;
             }
@@ -355,7 +355,7 @@ export component DetailsPagePage inherits Rectangle {
                 alignment: center;
                 Button {
                     label: "Close";
-                    importance: secondary;
+                    importance: Importance.secondary;
                     clicked => { show-qr = false; }
                 }
             }

@@ -4,9 +4,9 @@
 import { Button, ButtonSection, CircleIcon, ContentSection, HeadingLg,
          IconButton, AppHeader, LineCard, Link, TextLg, TextMd, TextSm, BasePage,
          ShieldPage, OverlayMenu, PopupMenuItem, Editable, WrappedIcon,
-         PageBody } from "@ui/widgets.slint";
-import { CardPageVersion, EditPageVersion } from "@ui/pages.slint";
-import { Importance, Palette, Size, CardColor, Utils } from "@ui/theme.slint";
+         PageBody } from "../../compat/widgets.slint";
+import { CardPageVersion, EditPageVersion } from "../../compat/pages.slint";
+import { Importance, Palette, Size, CardColor, Utils } from "../../compat/theme.slint";
 import { Callbacks, StoredKey } from "../../callbacks.slint";
 import { MainPageProps } from "./props.slint";
 import { Navigate } from "../../gen/navigate.slint";
@@ -109,7 +109,7 @@ export component MainPagePage inherits Rectangle {
             Button {
                 icon: "";
                 label: "New Key";
-                importance: primary;
+                importance: Importance.primary;
                 clicked => { go-add-key(); }
             }
         }
@@ -231,7 +231,7 @@ export component MainPagePage inherits Rectangle {
                     if !archive-view: Button {
                         icon: "";
                         label: "New Key";
-                        importance: primary;
+                        importance: Importance.primary;
                         clicked => { go-add-key(); }
                     }
                 }

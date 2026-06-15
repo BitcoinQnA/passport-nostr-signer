@@ -6,3 +6,5 @@ target/
 ui/gen/
 # Extension scratch
 *.zip
+/.envrc
+/ui/ui

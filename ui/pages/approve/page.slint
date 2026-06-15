@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import { HeadingLg, HeadingMd, HeadingSm, TextMd, TextSm, Button, BasePage } from "@ui/widgets.slint";
-import { Palette, Size } from "@ui/theme.slint";
+import { HeadingLg, HeadingMd, HeadingSm, TextMd, TextSm, Button, BasePage } from "../../compat/widgets.slint";
+import { Importance, Palette, Size } from "../../compat/theme.slint";
 import { Callbacks } from "../../callbacks.slint";
 import { Navigate } from "../../gen/navigate.slint";
 
@@ -81,7 +81,7 @@ export component ApprovePagePage inherits BasePage {
             spacing: 12px;
             Button {
                 label: "Reject";
-                importance: secondary;
+                importance: Importance.secondary;
                 horizontal-stretch: 1;
                 clicked => {
                     Callbacks.reject();
@@ -90,7 +90,7 @@ export component ApprovePagePage inherits BasePage {
             }
             Button {
                 label: "Approve";
-                importance: primary;
+                importance: Importance.primary;
                 horizontal-stretch: 1;
                 clicked => {
                     Callbacks.approve();
