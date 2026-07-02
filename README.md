@@ -27,6 +27,66 @@ It has two halves that ship together in this repo:
 > workspace, not standalone — see [Building](#building)) plus a companion
 > extension. Validated on a Passport Prime dev unit over WebUSB.
 
+## Quickstart
+
+Three levels, from "works on any laptop right now" to "on real hardware". An AI
+coding agent can drive all of them; each doc linked below is written to be read
+by one.
+
+### 1. Verify the crypto and protocol (no hardware, no KeyOS)
+
+All the Nostr primitives and the wire types live in a self-contained Rust
+workspace under [`logic/`](logic) with **no KeyOS dependencies**, so they build
+and test on any machine with Rust installed:
+
+```bash
+git clone https://github.com/BitcoinQnA/passport-nostr-signer.git
+cd passport-nostr-signer/logic
+cargo test
+# => 55 tests pass across nostr-core (30), keystore (8), protocol (17)
+```
+
+This exercises BIP-340 signing, NIP-04/44 encryption, NIP-06 key derivation,
+bech32, and the request/response envelope. It is the fastest way to confirm the
+core is sound.
+
+### 2. Run the full signer in the simulator
+
+The signer is a KeyOS app, so it builds inside a **KeyOS workspace** (KeyOS is
+Foundation's device OS, public at launch). Drop this repo in at
+`apps/gui-app-nostr-signer` per [`SDK-SETUP.md`](SDK-SETUP.md), then from the
+KeyOS root run the hosted simulator:
+
+```bash
+just sim
+```
+
+Open the launcher and select **Nostr Signer**. It serves a WebSocket on
+`127.0.0.1:9876`; confirm it is alive with any WebSocket client:
+
+```bash
+echo '{"id":"1","method":"ping"}' | websocat ws://127.0.0.1:9876
+# => {"id":"1","result":{"pong":true}}
+```
+
+See [`TESTING.md`](TESTING.md) for the full end-to-end walkthrough and
+[`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the wire format.
+
+### 3. Use it from a browser
+
+Load the extension unpacked (`chrome://extensions` -> Developer mode -> Load
+unpacked -> [`extension/`](extension)), allow a site, and sign a NIP-01 event in
+any NIP-07 client. On real hardware the extension talks to Passport over WebUSB;
+against the simulator, over WebSocket. See
+[`extension/README.md`](extension/README.md).
+
+> **Working with an AI agent?** Every layer has a doc: the wire protocol
+> ([`docs/PROTOCOL.md`](docs/PROTOCOL.md)), the auto-sign policy model
+> ([`docs/AUTO-SIGN.md`](docs/AUTO-SIGN.md)), hardware transport
+> ([`docs/HARDWARE.md`](docs/HARDWARE.md)), and KeyOS integration
+> ([`SDK-SETUP.md`](SDK-SETUP.md)). Point your agent at these and the repo is
+> self-navigating.
+
 ## Demo
 
 A short video of the signer running on real (dev) Passport Prime hardware,
