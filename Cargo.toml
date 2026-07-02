@@ -8,26 +8,34 @@ edition = "2021"
 authors = ["Foundation Devices, Inc. <hello@foundation.xyz>"]
 license = "GPL-3.0-or-later"
 
+[workspace]
+exclude = ["logic"]
+
+[patch.crates-io]
+getrandom = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+
 [dependencies]
 # KeyOS plumbing
-log = { workspace = true }
-log-server = { workspace = true }
-security = { workspace = true }
-serde = { workspace = true }
-server = { workspace = true }
-slint-keyos-platform = { path = "../../slint-keyos-platform/runtime" }
-usb = { workspace = true }
+log = "0.4"
+log-server = { package = "xous-api-log", git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+security = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+serde = { version = "1", features = ["derive"] }
+server = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+slint-keyos-platform = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+usb = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
 
 # Cross-target utilities
 async-trait = "0.1"
 anyhow = "1"
 bip39 = { version = "2.2", features = ["std"] }
+getrandom = "=0.2.10"
 hex = "0.4"
 hmac = "0.12"
 oneshot = "0.1"
 serde_json = "1"
 sha2 = "0.10"
-uuid = { version = "1", features = ["v4"] }
+simd-adler32 = "=0.3.7"
+uuid = { version = "=1.10.0", features = ["v4"] }
 
 # Nostr signer logic crates, vendored under ./logic (its own sub-workspace).
 nostr-core = { path = "logic/nostr-core" }
@@ -43,13 +51,11 @@ tokio-tungstenite = "0.21"
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 dirs = "5"
 
-# On-device we use the real `xous` crate directly for map_memory, PIDs,
-# and MemoryFlags. It isn't a workspace dep so we path-reference it.
 [target.'cfg(target_os = "xous")'.dependencies]
-xous = { path = "../../xous/xous-rs" }
+xous = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
 
 [build-dependencies]
-slint-keyos-platform-build = { path = "../../slint-keyos-platform/build", default-features = false }
+slint-keyos-platform-build = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(keyos)'] }

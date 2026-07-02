@@ -70,9 +70,7 @@ impl UnsignedEvent {
         // sha256 of the canonical serialization, so we use the prehash
         // variant to avoid k256's `sign`/`try_sign_with_rng` convenience
         // hashing the id a second time.
-        let sig: Signature = signing
-            .sign_prehash_with_rng(&mut OsRng, &id)
-            .map_err(|_| Error::InvalidKey)?;
+        let sig: Signature = signing.sign_prehash_with_rng(&mut OsRng, &id).map_err(|_| Error::InvalidKey)?;
         let mut sig_bytes = [0u8; 64];
         sig_bytes.copy_from_slice(&sig.to_bytes());
         Ok(Event {
@@ -104,18 +102,13 @@ impl Event {
         }
         let vk = self.pubkey.verifying_key();
         let sig = Signature::try_from(&self.sig[..]).map_err(|_| Error::BadSignature)?;
-        vk.verify_prehash(&self.id, &sig)
-            .map_err(|_| Error::BadSignature)?;
+        vk.verify_prehash(&self.id, &sig).map_err(|_| Error::BadSignature)?;
         Ok(())
     }
 
-    pub fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(self)?)
-    }
+    pub fn to_json(&self) -> Result<String> { Ok(serde_json::to_string(self)?) }
 
-    pub fn from_json(s: &str) -> Result<Self> {
-        Ok(serde_json::from_str(s)?)
-    }
+    pub fn from_json(s: &str) -> Result<Self> { Ok(serde_json::from_str(s)?) }
 }
 
 // --- serde helpers for hex-encoded binary fields ----------------------------
@@ -178,8 +171,7 @@ mod tests {
     use super::*;
 
     fn sk() -> SecretKey {
-        SecretKey::from_hex("7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a")
-            .unwrap()
+        SecretKey::from_hex("7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a").unwrap()
     }
 
     #[test]
@@ -254,10 +246,8 @@ mod tests {
     fn externally_validated_event_verifies() {
         let evt = Event {
             id: hex_to_arr32("6f1fe4853ffc63a8e3e6c634b7e740adbddbb08198221e3b998940264e2e0b3c"),
-            pubkey: PublicKey::from_hex(
-                "634b0ca8cce792b32cf343162f106b8792570ffda74e27985e1515c4ec2f9c56",
-            )
-            .unwrap(),
+            pubkey: PublicKey::from_hex("634b0ca8cce792b32cf343162f106b8792570ffda74e27985e1515c4ec2f9c56")
+                .unwrap(),
             created_at: 1_776_780_129,
             kind: 1,
             tags: vec![],
@@ -267,8 +257,7 @@ mod tests {
                  e683494eb377a4eaefd2069afa53d74f7f7a538e1154af073a27bca8147539da",
             ),
         };
-        evt.verify()
-            .expect("BIP-340 sig must verify under prehash semantics");
+        evt.verify().expect("BIP-340 sig must verify under prehash semantics");
     }
 
     fn hex_to_arr32(s: &str) -> [u8; 32] {
@@ -289,13 +278,8 @@ mod tests {
     fn rejects_pubkey_sk_mismatch() {
         let sk = sk();
         let other_pk = SecretKey::generate().unwrap().public_key();
-        let unsigned = UnsignedEvent {
-            pubkey: other_pk,
-            created_at: 0,
-            kind: 1,
-            tags: vec![],
-            content: "".into(),
-        };
+        let unsigned =
+            UnsignedEvent { pubkey: other_pk, created_at: 0, kind: 1, tags: vec![], content: "".into() };
         assert!(matches!(unsigned.sign(&sk), Err(Error::InvalidKey)));
     }
 }

@@ -29,11 +29,7 @@ pub struct EngineConfig {
 }
 
 impl Default for EngineConfig {
-    fn default() -> Self {
-        Self {
-            content_preview_chars: 140,
-        }
-    }
+    fn default() -> Self { Self { content_preview_chars: 140 } }
 }
 
 pub struct Engine<M: MasterKeySource> {
@@ -83,9 +79,7 @@ impl<M: MasterKeySource> Engine<M> {
     }
 
     /// Currently-active identity, if any.
-    pub fn selected(&self) -> Option<[u8; 16]> {
-        *self.selected.lock().unwrap()
-    }
+    pub fn selected(&self) -> Option<[u8; 16]> { *self.selected.lock().unwrap() }
 
     /// Rename a stored identity.
     pub fn rename(&self, uuid: &[u8; 16], label: String) -> Result<(), String> {
@@ -199,8 +193,7 @@ impl<M: MasterKeySource> Engine<M> {
             let seconds = (expiry_hours as u64)
                 .checked_mul(60 * 60)
                 .ok_or_else(|| "Expiry is too large.".to_string())?;
-            now.checked_add(seconds)
-                .ok_or_else(|| "Expiry is too large.".to_string())?
+            now.checked_add(seconds).ok_or_else(|| "Expiry is too large.".to_string())?
         };
         let mut store = self.autosign.lock().unwrap();
         store.add_rule(*key_uuid, origin, kind, expires_at, max_per_hour, now)?;
@@ -245,15 +238,7 @@ impl<M: MasterKeySource> Engine<M> {
         let ks = self.keystore.lock().unwrap();
         ks.list()
             .into_iter()
-            .map(|k| {
-                (
-                    hex::encode(k.uuid),
-                    k.label,
-                    hex::encode(k.npub),
-                    k.color,
-                    k.archived,
-                )
-            })
+            .map(|k| (hex::encode(k.uuid), k.label, hex::encode(k.npub), k.color, k.archived))
             .collect()
     }
 
@@ -267,27 +252,11 @@ impl<M: MasterKeySource> Engine<M> {
             Method::SignEvent(p) => self.sign_event(id, p).await,
             Method::Nip04Encrypt(p) => self.encrypt(id, p, CipherKind::Nip04).await,
             Method::Nip04Decrypt(p) => {
-                self.decrypt(
-                    id,
-                    p.uuid,
-                    p.origin,
-                    p.peer_pubkey,
-                    p.ciphertext,
-                    CipherKind::Nip04,
-                )
-                .await
+                self.decrypt(id, p.uuid, p.origin, p.peer_pubkey, p.ciphertext, CipherKind::Nip04).await
             }
             Method::Nip44Encrypt(p) => self.encrypt(id, p, CipherKind::Nip44).await,
             Method::Nip44Decrypt(p) => {
-                self.decrypt(
-                    id,
-                    p.uuid,
-                    p.origin,
-                    p.peer_pubkey,
-                    p.ciphertext,
-                    CipherKind::Nip44,
-                )
-                .await
+                self.decrypt(id, p.uuid, p.origin, p.peer_pubkey, p.ciphertext, CipherKind::Nip44).await
             }
         }
     }
@@ -348,14 +317,13 @@ impl<M: MasterKeySource> Engine<M> {
 
         let request_origin = params.origin.clone();
         let request_kind = params.event.kind;
-        let auto_rule_id =
-            match self.reserve_auto_sign(&uuid, request_origin.as_deref(), request_kind) {
-                Ok(rule_id) => rule_id,
-                Err(e) => {
-                    log::warn!("auto-sign policy check failed; falling back to approval: {e}");
-                    None
-                }
-            };
+        let auto_rule_id = match self.reserve_auto_sign(&uuid, request_origin.as_deref(), request_kind) {
+            Ok(rule_id) => rule_id,
+            Err(e) => {
+                log::warn!("auto-sign policy check failed; falling back to approval: {e}");
+                None
+            }
+        };
 
         if auto_rule_id.is_none() {
             let preview = truncate(&params.event.content, self.config.content_preview_chars);
@@ -538,10 +506,7 @@ impl<M: MasterKeySource> Engine<M> {
 
     fn resolve_uuid(&self, uuid_hex: Option<&str>) -> Result<[u8; 16], EngineError> {
         let uuid = if let Some(hex_str) = uuid_hex {
-            parse_uuid(hex_str).map_err(|m| EngineError {
-                code: ErrorCode::InvalidRequest,
-                msg: m,
-            })?
+            parse_uuid(hex_str).map_err(|m| EngineError { code: ErrorCode::InvalidRequest, msg: m })?
         } else {
             self.selected.lock().unwrap().ok_or(EngineError {
                 code: ErrorCode::InvalidRequest,
@@ -552,30 +517,22 @@ impl<M: MasterKeySource> Engine<M> {
         if is_live(ks.get_info(&uuid).as_ref()) {
             Ok(uuid)
         } else {
-            Err(EngineError {
-                code: ErrorCode::UnknownKey,
-                msg: "no such uuid".into(),
-            })
+            Err(EngineError { code: ErrorCode::UnknownKey, msg: "no such uuid".into() })
         }
     }
 
     fn reveal(&self, uuid: &[u8; 16]) -> Result<(keystore::KeyInfo, SecretKey), EngineError> {
         let ks = self.keystore.lock().unwrap();
-        let info = ks.get_info(uuid).ok_or(EngineError {
-            code: ErrorCode::UnknownKey,
-            msg: "no such uuid".into(),
-        })?;
-        let sk = ks.reveal(uuid).map_err(|e| EngineError {
-            code: ErrorCode::Internal,
-            msg: e.to_string(),
-        })?;
+        let info = ks
+            .get_info(uuid)
+            .ok_or(EngineError { code: ErrorCode::UnknownKey, msg: "no such uuid".into() })?;
+        let sk =
+            ks.reveal(uuid).map_err(|e| EngineError { code: ErrorCode::Internal, msg: e.to_string() })?;
         Ok((info, sk))
     }
 }
 
-fn is_live(info: Option<&keystore::KeyInfo>) -> bool {
-    info.map(|i| !i.archived).unwrap_or(false)
-}
+fn is_live(info: Option<&keystore::KeyInfo>) -> bool { info.map(|i| !i.archived).unwrap_or(false) }
 
 fn parse_uuid(s: &str) -> Result<[u8; 16], String> {
     let bytes = hex::decode(s).map_err(|e| format!("bad uuid hex: {e}"))?;
@@ -598,10 +555,7 @@ fn truncate(s: &str, max_chars: usize) -> String {
 }
 
 fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
 }
 
 struct EngineError {
@@ -610,9 +564,7 @@ struct EngineError {
 }
 
 impl EngineError {
-    fn into_response(self, id: String) -> Response {
-        Response::err(id, self.code, self.msg)
-    }
+    fn into_response(self, id: String) -> Response { Response::err(id, self.code, self.msg) }
 }
 
 #[derive(Copy, Clone)]

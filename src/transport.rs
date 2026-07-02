@@ -5,15 +5,12 @@
 //!
 //! The same request/response engine runs behind either of two transports:
 //!
-//!   - **WebSocket** on `cfg(not(keyos))` — used by the hosted-mode
-//!     simulator so the browser extension can reach the app during
-//!     development.
+//!   - **WebSocket** on `cfg(not(keyos))` — used by the hosted-mode simulator so the browser extension can
+//!     reach the app during development.
 //!
-//!   - **WebUSB** on `cfg(keyos)` — the production path on Passport
-//!     Prime hardware. The app registers a vendor-class USB interface
-//!     and the browser extension (browser-extension-1.3) reaches it via
-//!     Chromium's WebUSB API (`navigator.usb`). Wire format is
-//!     newline-delimited JSON, chunked across 64-byte transfers.
+//!   - **WebUSB** on `cfg(keyos)` — the production path on Passport Prime hardware. The app registers a
+//!     vendor-class USB interface and the browser extension (browser-extension-1.3) reaches it via Chromium's
+//!     WebUSB API (`navigator.usb`). Wire format is newline-delimited JSON, chunked across 64-byte transfers.
 //!
 //! The split keeps the USB implementation off the host build (it needs the
 //! `os/usbdev` server which only exists on device).

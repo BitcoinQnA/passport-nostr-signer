@@ -7,8 +7,8 @@
 //! derived from a master secret. The master lives behind the
 //! [`MasterKeySource`] trait:
 //!
-//!   - On Passport Prime it is `security.app_seed()`, a 32-byte per-app key
-//!     that is only accessible when the user is logged in with PIN.
+//!   - On Passport Prime it is `security.app_seed()`, a 32-byte per-app key that is only accessible when the
+//!     user is logged in with PIN.
 //!   - On macOS tests it is a random value persisted to a file.
 //!
 //! Per-key encryption keys are derived with HKDF-Expand so that rotating one
@@ -90,9 +90,7 @@ pub struct KeyInfo {
     pub archived: bool,
 }
 
-fn default_color() -> u8 {
-    3
-}
+fn default_color() -> u8 { 3 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EncryptedRecord {
@@ -124,12 +122,7 @@ pub struct Keystore<M: MasterKeySource> {
 }
 
 impl<M: MasterKeySource> Keystore<M> {
-    pub fn new(master: M) -> Self {
-        Self {
-            master,
-            records: Vec::new(),
-        }
-    }
+    pub fn new(master: M) -> Self { Self { master, records: Vec::new() } }
 
     pub fn from_bytes(master: M, data: &[u8]) -> Result<Self> {
         if data.is_empty() {
@@ -139,17 +132,11 @@ impl<M: MasterKeySource> Keystore<M> {
         if parsed.version != FORMAT_VERSION {
             return Err(Error::UnsupportedVersion(parsed.version));
         }
-        Ok(Self {
-            master,
-            records: parsed.records,
-        })
+        Ok(Self { master, records: parsed.records })
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
-        let file = KeystoreFile {
-            version: FORMAT_VERSION,
-            records: self.records.clone(),
-        };
+        let file = KeystoreFile { version: FORMAT_VERSION, records: self.records.clone() };
         Ok(serde_json::to_vec_pretty(&file)?)
     }
 
@@ -168,22 +155,17 @@ impl<M: MasterKeySource> Keystore<M> {
     }
 
     pub fn get_info(&self, uuid: &KeyId) -> Option<KeyInfo> {
-        self.records
-            .iter()
-            .find(|r| &r.uuid == uuid)
-            .map(|r| KeyInfo {
-                uuid: r.uuid,
-                label: r.label.clone(),
-                npub: r.npub,
-                created_at: r.created_at,
-                color: r.color,
-                archived: r.archived,
-            })
+        self.records.iter().find(|r| &r.uuid == uuid).map(|r| KeyInfo {
+            uuid: r.uuid,
+            label: r.label.clone(),
+            npub: r.npub,
+            created_at: r.created_at,
+            color: r.color,
+            archived: r.archived,
+        })
     }
 
-    pub fn count(&self) -> usize {
-        self.records.len()
-    }
+    pub fn count(&self) -> usize { self.records.len() }
 
     /// Encrypt and insert a new identity. Returns its uuid.
     pub fn add(&mut self, label: impl Into<String>, sk: &SecretKey, now: u64) -> Result<KeyId> {
@@ -229,11 +211,7 @@ impl<M: MasterKeySource> Keystore<M> {
 
     /// Decrypt and return the nsec for a stored identity.
     pub fn reveal(&self, uuid: &KeyId) -> Result<SecretKey> {
-        let record = self
-            .records
-            .iter()
-            .find(|r| &r.uuid == uuid)
-            .ok_or(Error::UnknownKey)?;
+        let record = self.records.iter().find(|r| &r.uuid == uuid).ok_or(Error::UnknownKey)?;
         let master = self.master.app_seed()?;
         let key_bytes = derive_key(&master, uuid);
         let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key_bytes));
@@ -253,57 +231,38 @@ impl<M: MasterKeySource> Keystore<M> {
     }
 
     pub fn remove(&mut self, uuid: &KeyId) -> Result<()> {
-        let pos = self
-            .records
-            .iter()
-            .position(|r| &r.uuid == uuid)
-            .ok_or(Error::UnknownKey)?;
+        let pos = self.records.iter().position(|r| &r.uuid == uuid).ok_or(Error::UnknownKey)?;
         self.records.remove(pos);
         Ok(())
     }
 
     pub fn rename(&mut self, uuid: &KeyId, new_label: impl Into<String>) -> Result<()> {
-        let record = self
-            .records
-            .iter_mut()
-            .find(|r| &r.uuid == uuid)
-            .ok_or(Error::UnknownKey)?;
+        let record = self.records.iter_mut().find(|r| &r.uuid == uuid).ok_or(Error::UnknownKey)?;
         record.label = new_label.into();
         Ok(())
     }
 
     pub fn set_color(&mut self, uuid: &KeyId, color: u8) -> Result<()> {
-        let record = self
-            .records
-            .iter_mut()
-            .find(|r| &r.uuid == uuid)
-            .ok_or(Error::UnknownKey)?;
+        let record = self.records.iter_mut().find(|r| &r.uuid == uuid).ok_or(Error::UnknownKey)?;
         record.color = color;
         Ok(())
     }
 
     pub fn set_archived(&mut self, uuid: &KeyId, archived: bool) -> Result<()> {
-        let record = self
-            .records
-            .iter_mut()
-            .find(|r| &r.uuid == uuid)
-            .ok_or(Error::UnknownKey)?;
+        let record = self.records.iter_mut().find(|r| &r.uuid == uuid).ok_or(Error::UnknownKey)?;
         record.archived = archived;
         Ok(())
     }
 
     pub fn lookup_by_npub(&self, npub: &PublicKey) -> Option<KeyInfo> {
-        self.records
-            .iter()
-            .find(|r| &r.npub == npub.as_bytes())
-            .map(|r| KeyInfo {
-                uuid: r.uuid,
-                label: r.label.clone(),
-                npub: r.npub,
-                created_at: r.created_at,
-                color: r.color,
-                archived: r.archived,
-            })
+        self.records.iter().find(|r| &r.npub == npub.as_bytes()).map(|r| KeyInfo {
+            uuid: r.uuid,
+            label: r.label.clone(),
+            npub: r.npub,
+            created_at: r.created_at,
+            color: r.color,
+            archived: r.archived,
+        })
     }
 }
 
@@ -323,9 +282,7 @@ fn derive_key(master: &[u8; 32], uuid: &KeyId) -> [u8; 32] {
 pub struct InMemoryMasterKey(pub [u8; 32]);
 
 impl MasterKeySource for InMemoryMasterKey {
-    fn app_seed(&self) -> Result<[u8; 32]> {
-        Ok(self.0)
-    }
+    fn app_seed(&self) -> Result<[u8; 32]> { Ok(self.0) }
 }
 
 /// File-backed master key for macOS dev. Generates a random 32-byte master
@@ -337,9 +294,7 @@ pub struct FileMasterKey {
 }
 
 impl FileMasterKey {
-    pub fn new(path: impl Into<PathBuf>) -> Self {
-        Self { path: path.into() }
-    }
+    pub fn new(path: impl Into<PathBuf>) -> Self { Self { path: path.into() } }
 }
 
 impl MasterKeySource for FileMasterKey {
@@ -387,10 +342,7 @@ pub fn save<M: MasterKeySource>(keystore: &Keystore<M>, path: &Path) -> Result<(
 }
 
 fn temp_path(path: &Path) -> PathBuf {
-    let mut name = path
-        .file_name()
-        .map(|s| s.to_os_string())
-        .unwrap_or_else(|| "keystore".into());
+    let mut name = path.file_name().map(|s| s.to_os_string()).unwrap_or_else(|| "keystore".into());
     name.push(".tmp");
     path.with_file_name(name)
 }

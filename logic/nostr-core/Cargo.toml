@@ -3,27 +3,27 @@
 
 [package]
 name = "nostr-core"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
 
 [dependencies]
-k256 = { workspace = true, features = ["std"] }
-sha2 = { workspace = true, features = ["std"] }
-hmac = { workspace = true, features = ["std"] }
-hkdf = { workspace = true, features = ["std"] }
-pbkdf2 = { workspace = true, features = ["std"] }
-bip39 = { workspace = true, features = ["std"] }
-chacha20 = { workspace = true, features = ["std"] }
-aes = { workspace = true }
-cbc = { workspace = true, features = ["std"] }
-cipher = { workspace = true, features = ["std"] }
-bech32 = { workspace = true, features = ["std"] }
-hex = { workspace = true, features = ["std"] }
-base64 = { workspace = true, features = ["std"] }
-serde = { workspace = true, features = ["std"] }
-serde_json = { workspace = true, features = ["std"] }
-thiserror.workspace = true
-zeroize.workspace = true
-rand_core = { workspace = true, features = ["std"] }
-getrandom.workspace = true
+k256 = { version = "0.13", default-features = false, features = ["schnorr", "ecdh", "alloc", "std"] }
+sha2 = { version = "0.10", default-features = false, features = ["std"] }
+hmac = { version = "0.12", default-features = false, features = ["std"] }
+hkdf = { version = "0.12", default-features = false, features = ["std"] }
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac", "std"] }
+bip39 = { version = "2.0", default-features = false, features = ["alloc", "std"] }
+chacha20 = { version = "0.9", default-features = false, features = ["std"] }
+aes = { version = "0.8", default-features = false }
+cbc = { version = "0.1", default-features = false, features = ["alloc", "std"] }
+cipher = { version = "0.4", default-features = false, features = ["block-padding", "std"] }
+bech32 = { version = "0.11", default-features = false, features = ["alloc", "std"] }
+hex = { version = "0.4", default-features = false, features = ["alloc", "std"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc", "std"] }
+serde = { version = "1", default-features = false, features = ["derive", "alloc", "std"] }
+serde_json = { version = "1", default-features = false, features = ["alloc", "std"] }
+thiserror = "1"
+zeroize = { version = "1.7", features = ["derive"] }
+rand_core = { version = "0.6", default-features = false, features = ["std"] }
+getrandom = "0.2"

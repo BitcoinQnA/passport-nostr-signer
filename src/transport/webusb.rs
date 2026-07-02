@@ -33,6 +33,7 @@ usb::use_device_api!();
 const WEBUSB_IFCE_CLASS: u8 = 0xFF;
 const WEBUSB_IFCE_SUBCLASS: u8 = 0xFF;
 const WEBUSB_IFCE_PROTOCOL: u8 = 0xFF;
+const WEBUSB_INTERFACE_NUMBER: u8 = 0;
 
 /// Hard cap on a single newline-delimited request, in bytes. A host that
 /// sends more without ever emitting `\n` is faulty or hostile; drop the
@@ -79,10 +80,7 @@ impl ServerMessages for SetupResponder {
 
     fn messages() -> &'static [server::MessageDef<Self>] {
         use server::MessageId;
-        &[(
-            SetupPacketCallback::ID,
-            server::handle_blocking_archive_message::<SetupPacketCallback, _>,
-        )]
+        &[(SetupPacketCallback::ID, server::handle_blocking_archive_message::<SetupPacketCallback, _>)]
     }
 }
 impl Server for SetupResponder {}
@@ -115,61 +113,42 @@ pub async fn serve<M: MasterKeySource + Send + Sync + 'static>(
     serve_blocking(engine)
 }
 
-fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
-    engine: Arc<Engine<M>>,
-) -> anyhow::Result<()> {
+fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(engine: Arc<Engine<M>>) -> anyhow::Result<()> {
     crate::transport::set_status("WebUSB: init");
     let mut usb = UsbDeviceEmulation::default();
 
-    // WebUSB Platform Capability descriptor.
-    // UUID per https://wicg.github.io/webusb/#webusb-platform-capability-descriptor.
-    if let Err(e) = usb.register_capability(
-        16, // bDescriptorType: DEVICE CAPABILITY
-        5,  // bDevCapabilityType: PLATFORM
-        uuid::uuid!("3408b638-09a9-47a0-8bfd-a0768815b665"),
-        &[
-            0x00,
-            0x01, // bcdVersion: 1.00
-            WEBUSB_VENDOR_CODE,
-            0x00, // iLandingPage: 0 (none)
-        ],
-    ) {
-        let msg = format!("WebUSB: register WebUSB capability failed: {e:?}");
-        log::warn!("{msg}");
-        crate::transport::set_status(msg);
-        std::thread::park();
-        return Ok(());
-    }
-
-    // Microsoft OS 2.0 Platform Capability descriptor (inert on macOS /
-    // Linux; lets Windows auto-bind to WinUSB if/when a descriptor set
-    // is added behind the vendor code).
-    if let Err(e) = usb.register_capability(
-        16,
-        5,
-        uuid::uuid!("d8dd60df-4589-4cc7-9cd2-659d9e648a9f"),
-        &[0x00, 0x00, 0x03, 0x06, 0xb2, 0x00, 0x77, 0x00],
-    ) {
-        let msg = format!("WebUSB: register MS OS 2.0 capability failed: {e:?}");
-        log::warn!("{msg}");
-        crate::transport::set_status(msg);
-        std::thread::park();
-        return Ok(());
-    }
-
-    if let Err(e) = usb.register_setup_responder(SetupResponder) {
-        crate::transport::set_status(format!("WebUSB: setup responder failed: {e:?}"));
-        return Err(anyhow::anyhow!("register_setup_responder: {e:?}"));
-    }
-
     crate::transport::set_status("WebUSB: registering interface");
-    let [mut ep_in, ep_out] = match usb.register_interface(
-        WEBUSB_IFCE_CLASS,
-        WEBUSB_IFCE_SUBCLASS,
-        WEBUSB_IFCE_PROTOCOL,
-        &WEBUSB_ENDPOINTS,
-        &[],
-        0,
+    let (_webusb_interface, [mut ep_in, ep_out]) = match usb.register_interface(
+        UsbInterfaceConfig::new(
+            WEBUSB_INTERFACE_NUMBER,
+            WEBUSB_IFCE_CLASS,
+            WEBUSB_IFCE_SUBCLASS,
+            WEBUSB_IFCE_PROTOCOL,
+            &WEBUSB_ENDPOINTS,
+        )
+        // WebUSB Platform Capability descriptor.
+        // UUID per https://wicg.github.io/webusb/#webusb-platform-capability-descriptor.
+        .with_capability(
+            16, // bDescriptorType: DEVICE CAPABILITY
+            5,  // bDevCapabilityType: PLATFORM
+            uuid::uuid!("3408b638-09a9-47a0-8bfd-a0768815b665"),
+            &[
+                0x00,
+                0x01, // bcdVersion: 1.00
+                WEBUSB_VENDOR_CODE,
+                0x00, // iLandingPage: 0 (none)
+            ],
+        )
+        // Microsoft OS 2.0 Platform Capability descriptor (inert on macOS /
+        // Linux; lets Windows auto-bind to WinUSB if/when a descriptor set
+        // is added behind the vendor code).
+        .with_capability(
+            16,
+            5,
+            uuid::uuid!("d8dd60df-4589-4cc7-9cd2-659d9e648a9f"),
+            &[0x00, 0x00, 0x03, 0x06, 0xb2, 0x00, 0x77, 0x00],
+        )
+        .with_setup_responder(Some(SetupResponder)),
     ) {
         Ok(eps) => eps,
         Err(e) => {
@@ -192,9 +171,7 @@ fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
     crate::transport::set_status("WebUSB: resetting USB");
     usb.reset_controller();
 
-    crate::transport::set_status(format!(
-        "WebUSB ready (EP out={ep_out_num}, in={ep_in_num})"
-    ));
+    crate::transport::set_status(format!("WebUSB ready (EP out={ep_out_num}, in={ep_in_num})"));
 
     let (payload_tx, payload_rx) = mpsc::channel::<Vec<u8>>();
 
@@ -210,8 +187,7 @@ fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
 
     while let Ok(payload) = payload_rx.recv() {
         log::trace!("webusb dispatcher: got {} byte payload", payload.len());
-        let response =
-            slint_keyos_platform::futures_lite::future::block_on(dispatch(&engine, &payload));
+        let response = slint_keyos_platform::futures_lite::future::block_on(dispatch(&engine, &payload));
         let mut response_bytes = match serde_json::to_vec(&response) {
             Ok(b) => b,
             Err(e) => {
@@ -220,10 +196,7 @@ fn serve_blocking<M: MasterKeySource + Send + Sync + 'static>(
             }
         };
         response_bytes.push(b'\n');
-        log::trace!(
-            "webusb dispatcher: writing {} bytes to EP IN",
-            response_bytes.len()
-        );
+        log::trace!("webusb dispatcher: writing {} bytes to EP IN", response_bytes.len());
         for chunk in response_bytes.chunks(64) {
             write_buf.as_slice_mut::<u8>()[..chunk.len()].copy_from_slice(chunk);
             match ep_in.write_buf(write_buf, chunk.len()) {
@@ -267,9 +240,7 @@ fn reader_loop(
                 if let Err(e) = usb_api.wait_for_connection() {
                     log::warn!("webusb wait_for_connection: {e:?}");
                 }
-                crate::transport::set_status(format!(
-                    "WebUSB ready (EP out={ep_out_num}, in={ep_in_num})"
-                ));
+                crate::transport::set_status(format!("WebUSB ready (EP out={ep_out_num}, in={ep_in_num})"));
                 continue;
             }
             Err(e) => {

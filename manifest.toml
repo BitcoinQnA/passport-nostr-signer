@@ -1,22 +1,61 @@
-# SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 appId = "0x1f8f092a30b7425273d9b15d5f3dd8c8"
+icon = "resources/.foundation/icon.raw"
+publisher = "Foundation Devices, Inc."
+description = "Nostr signer for Passport Prime"
+version = "0.1.0"
 
 [appName]
 en = "Nostr Signer"
 
 [permissions]
-template = ["gui-app", "fs-generic"]
-"os/security" = ["GetAppSeed", "GetSeed"]
+"os/fs" = [
+    "AsyncCopyBlock",
+    "AsyncRead",
+    "AsyncWrite",
+    "AtomicCopy",
+    "CloseDir",
+    "CloseFile",
+    "CreateDirMessage",
+    "Flush",
+    "FlushFs",
+    "GetMetadata",
+    "MapFileMessage",
+    "NextEntry",
+    "OpenDirMessage",
+    "OpenFileMessage",
+    "ReadFile",
+    "Remove",
+    "Rename",
+    "SeekFile",
+    "SetLen",
+    "SubscribeFilesystemEvent",
+    "TruncateFile",
+    "WriteFile",
+]
+"os/gui-server" = [
+    "AnimateNextFrame",
+    "HideKeyboard",
+    "RegisterAppMessage",
+    "RequestRedraw",
+    "ShowModal",
+    "SubmitFrame",
+    "UpdateKeyboard",
+]
+"os/security" = [
+    "GetAppSeed",
+    "GetSeed",
+]
+"os/settings" = [
+    "GetDebugTouch",
+    "GetSystemTheme",
+    "SubscribeDebugTouch",
+    "SubscribeSystemTheme",
+]
 "os/usbdev" = [
-    "RegisterCapability",
-    "RegisterSetupResponder",
-    "RegisterInterface",
-    "NumInterfaces",
     "ReadEndpoint",
-    "WriteEndpoint",
+    "RegisterInterface",
+    "ResetController",
     "SetEndpointStalled",
     "WaitForConnection",
-    "ResetController",
+    "WriteEndpoint",
 ]

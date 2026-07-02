@@ -1,0 +1,762 @@
+// SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+import {
+    CardColor, CurrentTheme, Images, Importance, Palette, Size, UISize, Utils,
+} from "theme.slint";
+
+export component BaseWindow inherits Window {
+    width: UISize.screen-width;
+    height: UISize.screen-height;
+    background: Palette.background-primary;
+
+    FocusScope {
+        init => {
+            self.focus();
+        }
+    }
+}
+
+export component BasePage inherits Rectangle {
+    x: 0;
+    y: UISize.control-center-status-bar-height;
+    width: UISize.screen-width;
+    height: UISize.app-window-height;
+}
+
+export component PageBody inherits VerticalLayout {
+    alignment: space-between;
+
+    in property <length> p-x: Size.sz6;
+    in property <length> p-y: Size.sz6;
+
+    padding-left: p-x;
+    padding-right: p-x;
+    padding-top: p-y;
+    padding-bottom: p-y;
+}
+
+export component ContentSection inherits VerticalLayout {
+    alignment: start;
+    spacing: Size.sz6;
+}
+
+export component ButtonSection inherits VerticalLayout {
+    alignment: end;
+    spacing: Size.sz4;
+    padding-bottom: Size.sz2;
+    padding-left: Size.sz2;
+    padding-right: Size.sz2;
+}
+
+export component ScrollBody inherits Rectangle {
+    in-out property <length> viewport-x <=> flickable.viewport-x;
+    in-out property <length> viewport-y <=> flickable.viewport-y;
+    in-out property <length> viewport-width <=> flickable.viewport-width;
+    in-out property <length> viewport-height <=> flickable.viewport-height;
+
+    in property <length> p-x: Size.sz6;
+    in property <length> p-y: Size.sz6;
+
+    PageBody {
+        p-x: root.p-x;
+        p-y: root.p-y;
+
+        flickable := Flickable {
+            FocusScope { }
+            @children
+        }
+    }
+}
+
+component CompatText inherits Text {
+    color: Palette.content-primary;
+    font-family: "Montserrat";
+    wrap: word-wrap;
+    vertical-alignment: top;
+    horizontal-alignment: left;
+    letter-spacing: 0px;
+}
+
+export component HeadingLg inherits CompatText {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+export component HeadingMd inherits CompatText {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+export component HeadingSm inherits CompatText {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+export component TextLg inherits CompatText {
+    font-size: 20px;
+    font-weight: root.bold ? 700 : 400;
+    in property <bool> bold: false;
+}
+
+export component TextMd inherits CompatText {
+    font-size: 18px;
+    font-weight: root.bold ? 700 : 400;
+    in property <bool> bold: false;
+}
+
+export component TextSm inherits CompatText {
+    font-size: 14px;
+    font-weight: root.bold ? 700 : 400;
+    in property <bool> bold: false;
+}
+
+component IconImage inherits Image {
+    in property <string> name;
+    in property <length> icon-size: Size.sz6;
+    in property <brush> icon-color: Palette.content-primary;
+
+    width: icon-size;
+    height: icon-size;
+    source: name != "" ? Images.icon(name, icon-size) : @image-url("");
+    colorize: icon-color;
+}
+
+export component Button inherits Rectangle {
+    in property <string> id;
+    in property <string> label: "Button";
+    in property <Importance> importance: Importance.primary;
+    in property <bool> enabled: true;
+    in property <string> icon: "";
+    in property <bool> loading: false;
+    in property <bool> force-pressed: false;
+    in property <brush> label-color: Utils.button-foreground(importance, touch-area.pressed || force-pressed, enabled);
+
+    callback clicked(string);
+
+    height: Size.sz15;
+    border-radius: root.height / 2;
+    background: Utils.button-background(importance, touch-area.pressed || force-pressed, enabled);
+    opacity: enabled ? 1.0 : 0.65;
+    clip: true;
+
+    HorizontalLayout {
+        spacing: Size.sz2;
+        alignment: center;
+        padding-left: Size.sz6;
+        padding-right: Size.sz6;
+
+        if icon != "": IconImage {
+            name: icon;
+            icon-size: Size.sz6;
+            icon-color: root.label-color;
+        }
+
+        if label != "": TextLg {
+            text: root.label;
+            color: root.label-color;
+            bold: true;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            horizontal-stretch: 0;
+        }
+    }
+
+    touch-area := TouchArea {
+        enabled: root.enabled && !root.loading;
+        clicked => {
+            root.clicked(root.id);
+        }
+    }
+}
+
+export component IconButton inherits Rectangle {
+    in property <string> id;
+    in property <Importance> importance: Importance.normal;
+    in property <bool> enabled: true;
+    in property <string> icon;
+    in property <length> size: Size.sz10;
+    in property <length> icon-size: Math.min(size, Size.sz8);
+    in property <float> touch-factor: 2.5;
+    in property <bool> force-pressed: false;
+    in property <brush> icon-color: Utils.button-foreground(importance, touch-area.pressed || force-pressed, enabled);
+
+    callback clicked(string);
+
+    width: size;
+    height: size;
+    background: Utils.button-background(importance, touch-area.pressed || force-pressed, enabled);
+    border-radius: size / 2;
+
+    IconImage {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        name: root.icon;
+        icon-size: root.icon-size;
+        icon-color: root.icon-color;
+    }
+
+    touch-area := TouchArea {
+        x: -(root.touch-factor - 1.0) * root.size / 2;
+        y: -(root.touch-factor - 1.0) * root.size / 2;
+        width: root.size * root.touch-factor;
+        height: root.size * root.touch-factor;
+        enabled: root.enabled;
+        clicked => {
+            root.clicked(root.id);
+        }
+    }
+}
+
+export component Link inherits Rectangle {
+    in property <string> label;
+    in property <float> touch-factor: 1.0;
+    in property <Importance> importance: Importance.tertiary;
+    callback clicked();
+
+    height: Size.sz10;
+    min-width: text.preferred-width;
+
+    text := TextMd {
+        text: root.label;
+        color: Utils.button-foreground(root.importance, touch.pressed, true);
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+
+    touch := TouchArea {
+        x: -(root.touch-factor - 1.0) * root.width / 2;
+        y: -(root.touch-factor - 1.0) * root.height / 2;
+        width: root.width * root.touch-factor;
+        height: root.height * root.touch-factor;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component RawQrcode inherits Rectangle {
+    in property <image> img;
+
+    Image {
+        source: root.img;
+        image-rendering: pixelated;
+        image-fit: contain;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+export component Qrcode inherits RawQrcode {
+    in property <string> data;
+
+    img: Utils.qrcode(data, Palette.black, Palette.white);
+}
+
+export component RawQrCodeCard inherits Rectangle {
+    in property <image> img;
+
+    background: Palette.white;
+    width: 350px;
+    height: 350px;
+    border-radius: Size.sz6;
+    border-color: Palette.border-tertiary;
+    border-width: Size.sz1;
+    clip: true;
+
+    RawQrcode {
+        img: root.img;
+        width: 340px;
+        height: 340px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+}
+
+export component QrCodeCard inherits RawQrCodeCard {
+    in property <string> data;
+
+    img: Utils.qrcode(data, Palette.black, Palette.white);
+}
+
+export component ShowHide inherits VerticalLayout {
+    in property <string> text;
+    property <bool> show: false;
+
+    spacing: Size.zero;
+
+    Rectangle {
+        height: Size.sz14;
+
+        VerticalLayout {
+            alignment: center;
+
+            HorizontalLayout {
+                spacing: Size.sz3;
+                padding-left: Size.sz4;
+                alignment: start;
+
+                TextMd {
+                    text: root.text;
+                    color: Palette.content-link;
+                    width: 207px;
+                }
+
+                IconImage {
+                    name: root.show ? "chevron-up" : "chevron-down";
+                    icon-color: Palette.content-link;
+                }
+            }
+        }
+
+        TouchArea {
+            clicked => {
+                root.show = !root.show;
+                if !root.show {
+                    focus-taker.focus();
+                }
+            }
+        }
+
+        focus-taker := FocusScope {
+            enabled: false;
+        }
+    }
+
+    Rectangle {
+        visible: root.show;
+
+        @children
+    }
+}
+
+export component AppHeader inherits Rectangle {
+    in property <string> title;
+    in property <brush> title-color: Palette.content-primary;
+    in property <LayoutAlignment> alignment: space-between;
+    in property <length> side-padding: Size.sz4;
+
+    height: Size.sz16;
+
+    HeadingMd {
+        width: parent.width - 2 * (root.side-padding + Size.sz12);
+        x: root.side-padding + Size.sz12;
+        height: parent.height;
+        text: root.title;
+        color: root.title-color;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        wrap: no-wrap;
+        overflow: elide;
+    }
+
+    HorizontalLayout {
+        width: 100%;
+        height: parent.height;
+        padding-left: root.side-padding;
+        padding-right: root.side-padding;
+        alignment: root.alignment;
+
+        @children
+    }
+}
+
+export component TitledInput inherits VerticalLayout {
+    in property <string> title;
+    in property <string> placeholder;
+    in-out property <string> text;
+    in property <bool> has-error: false;
+    in property <bool> has-notice: false;
+    in property <string> message;
+    in property <bool> enabled: true;
+    in property <CapsMode> caps-mode: CapsMode.none;
+    in property <InputType> input-type: InputType.text;
+    in property <bool> bounded-number: false;
+    in property <string> minimum: "";
+    in property <string> maximum: "";
+    in-out property <bool> show-password: false;
+
+    out property <bool> has-focus: input.has-focus;
+
+    callback edited(string);
+    callback accepted(string);
+
+    spacing: Size.sz2;
+    forward-focus: input;
+
+    HorizontalLayout {
+        padding-left: Size.sz4;
+        TextSm {
+            text: root.title;
+            color: Palette.content-tertiary;
+        }
+    }
+
+    Rectangle {
+        height: Size.sz14;
+        background: root.enabled ? Palette.background-primary-alternative : Palette.background-disabled;
+        border-radius: Size.sz6;
+        border-width: Size.sz0_25;
+        border-color: root.has-error ? Palette.border-negative : root.has-notice ? Palette.border-notice : input.has-focus ? Palette.border-focus : Palette.border-secondary;
+
+        if input.text == "": TextMd {
+            x: Size.sz4;
+            width: parent.width - Size.sz8;
+            height: parent.height;
+            text: root.placeholder;
+            color: Palette.content-disabled;
+            vertical-alignment: center;
+            wrap: no-wrap;
+            overflow: elide;
+        }
+
+        input := TextInput {
+            x: Size.sz4;
+            width: parent.width - Size.sz8;
+            height: parent.height;
+            text <=> root.text;
+            color: root.has-error ? Palette.content-negative : root.has-notice ? Palette.content-notice : Palette.content-primary;
+            font-family: "Montserrat";
+            font-size: 18px;
+            input-type: root.input-type == InputType.password && !root.show-password ? InputType.password : InputType.text;
+            caps-mode: root.caps-mode;
+            enabled: root.enabled;
+            vertical-alignment: center;
+
+            edited => {
+                root.edited(self.text);
+            }
+
+            accepted => {
+                if root.input-type == InputType.number && root.bounded-number {
+                    self.text = Utils.check-bounds(self.text, root.minimum, root.maximum);
+                }
+                root.accepted(self.text);
+            }
+        }
+    }
+
+    if has-notice || has-error: TextSm {
+        text: root.message;
+        color: has-error ? Palette.content-negative : Palette.content-notice;
+        wrap: word-wrap;
+    }
+}
+
+export component SearchInput inherits TitledInput {
+    title: "";
+    placeholder: "Search";
+}
+
+export component LineCard inherits Rectangle {
+    in property <CardColor> card-color: CardColor.purple;
+
+    background: Utils.get-card-bg-color(card-color);
+    border-radius: Size.sz5;
+    clip: true;
+
+    Rectangle {
+        y: 0;
+        height: Size.sz1;
+        background: Utils.get-card-line-top-color(root.card-color);
+    }
+
+    Rectangle {
+        y: parent.height - Size.sz1;
+        height: Size.sz1;
+        background: Utils.get-card-line-bottom-color(root.card-color);
+    }
+
+    @children
+}
+
+export component CircleIcon inherits Rectangle {
+    in property <string> icon;
+    in property <CardColor> line-color: CardColor.purple;
+
+    width: Size.sz12;
+    height: Size.sz12;
+    border-radius: root.width / 2;
+    background: Palette.white;
+
+    IconImage {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        name: root.icon;
+        icon-size: Size.sz6;
+        icon-color: Utils.get-card-bg-color(root.line-color);
+    }
+}
+
+export component WrappedIcon inherits Rectangle {
+    in property <string> outer-icon;
+    in property <string> inner-icon;
+
+    width: Size.sz16;
+    height: Size.sz16;
+    border-radius: root.width / 2;
+    background: Palette.background-primary-alternative;
+
+    IconImage {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        name: root.inner-icon;
+        icon-size: Size.sz8;
+        icon-color: Palette.content-brand;
+    }
+}
+
+export component Editable inherits Rectangle {
+    in property <bool> edit-mode: false;
+    in property <bool> drag-and-drop: false;
+    callback edit();
+
+    height: 96px;
+
+    HorizontalLayout {
+        height: root.height;
+        spacing: Size.sz4;
+
+        if root.edit-mode: IconButton {
+            icon: "edit";
+            size: Size.sz8;
+            importance: Importance.secondary;
+            clicked => {
+                root.edit();
+            }
+        }
+
+        content := Rectangle {
+            horizontal-stretch: 1;
+            height: root.height;
+            @children
+        }
+    }
+}
+
+export component OverlayMenu inherits Rectangle {
+    background: Palette.overlay;
+    callback touched-off();
+
+    popup := Rectangle {
+        x: root.width - self.width - Size.sz7;
+        y: UISize.popup-menu-y;
+        z: 100;
+        width: UISize.popup-menu-width;
+        height: content.preferred-height;
+        background: Palette.background-primary;
+        border-radius: Size.sz4;
+        clip: true;
+
+        content := VerticalLayout {
+            @children
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root.touched-off();
+        }
+    }
+}
+
+export component PopupMenuItem inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> first: false;
+    in property <bool> last: false;
+    callback clicked();
+
+    height: Size.sz14;
+    background: touch.pressed ? Palette.background-pressed : Palette.background-primary;
+
+    HorizontalLayout {
+        padding-left: Size.sz4;
+        padding-right: Size.sz4;
+        spacing: Size.sz3;
+        alignment: start;
+
+        IconImage {
+            name: root.icon;
+            icon-size: Size.sz6;
+            icon-color: Palette.content-secondary;
+        }
+
+        TextMd {
+            text: root.label;
+            color: Palette.content-primary;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component Modal inherits Rectangle {
+    in property <string> icon: "info";
+    in property <brush> icon-color: Palette.content-brand;
+    in property <string> title;
+    in property <string> text;
+    in property <length> button-spacing: Size.sz4;
+
+    background: Palette.overlay;
+
+    TouchArea { }
+
+    panel := Rectangle {
+        width: UISize.modal-width;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        height: layout.preferred-height;
+        z: 100;
+        background: Palette.background-primary;
+        border-radius: Size.sz6;
+
+        layout := VerticalLayout {
+            padding: Size.sz6;
+            spacing: Size.sz6;
+            alignment: start;
+
+            HorizontalLayout {
+                alignment: center;
+                IconImage {
+                    name: root.icon;
+                    icon-size: Size.sz12;
+                    icon-color: root.icon-color;
+                }
+            }
+
+            ContentSection {
+                spacing: Size.sz4;
+                HeadingMd {
+                    text: root.title;
+                    horizontal-alignment: center;
+                }
+
+                TextSm {
+                    text: root.text;
+                    color: Palette.content-secondary;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+
+            ButtonSection {
+                spacing: root.button-spacing;
+                @children
+            }
+        }
+    }
+}
+
+export component ConfirmationModal inherits Modal {
+    in property <string> confirm-button-label;
+    in property <bool> critical: false;
+    in property <string> cancel-button-label;
+
+    icon-color: critical ? Palette.content-negative : Palette.content-brand;
+
+    callback cancel-clicked();
+    callback confirm-clicked();
+
+    Button {
+        icon: "";
+        label: cancel-button-label;
+        importance: Importance.secondary;
+        clicked => {
+            cancel-clicked();
+        }
+    }
+
+    Button {
+        icon: "";
+        label: confirm-button-label;
+        importance: critical ? Importance.negative : Importance.primary;
+        clicked => {
+            confirm-clicked();
+        }
+    }
+}
+
+export component ErrorModal inherits Modal {
+    in property <string> confirm-button-label;
+    callback confirm-clicked();
+
+    Button {
+        icon: "";
+        label: confirm-button-label;
+        importance: Importance.primary;
+        clicked => {
+            confirm-clicked();
+        }
+    }
+}
+
+export component CardColorPicker inherits VerticalLayout {
+    in-out property <int> selected-index: 0;
+    in property <string> title: "";
+    callback changed(int);
+
+    spacing: Size.sz3;
+
+    if title != "": TextSm {
+        text: root.title;
+        color: Palette.content-tertiary;
+    }
+
+    HorizontalLayout {
+        spacing: Size.sz2;
+
+        for color[index] in [
+            CardColor.purple, CardColor.green, CardColor.pine, CardColor.light-copper,
+            CardColor.dark-copper, CardColor.teal, CardColor.blue, CardColor.orange, CardColor.red,
+        ]: Rectangle {
+            width: Size.sz8;
+            height: Size.sz8;
+            border-radius: self.width / 2;
+            background: Utils.get-card-color-picker-color(color);
+            border-width: root.selected-index == index ? Size.sz0_5 : 0px;
+            border-color: Palette.content-primary;
+
+            TouchArea {
+                clicked => {
+                    root.selected-index = index;
+                    root.changed(index);
+                }
+            }
+        }
+    }
+}
+
+export component SlideToButton inherits Button {
+    in property <string> info-label;
+    in property <string> activated-label;
+    callback activated(string);
+
+    importance: Importance.primary;
+    clicked(id) => {
+        root.activated(id);
+    }
+}
+
+export component ShieldPage inherits Rectangle {
+    x: 0;
+    y: UISize.control-center-status-bar-height;
+    width: UISize.screen-width;
+    height: UISize.app-window-height;
+    background: Palette.background-primary;
+
+    VerticalLayout {
+        alignment: space-between;
+        padding-left: Size.sz6;
+        padding-right: Size.sz6;
+        padding-top: Size.sz8;
+        padding-bottom: Size.sz4;
+
+        @children
+    }
+}

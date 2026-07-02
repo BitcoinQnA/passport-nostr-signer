@@ -25,20 +25,13 @@ const NOSTR_COIN: u32 = 1237;
 /// NIP-06 (path m/44'/1237'/account'/0/0). `passphrase` is the BIP-39
 /// passphrase — pass "" for the standard "no passphrase" case.
 pub fn derive(mnemonic: &str, passphrase: &str, account: u32) -> Result<SecretKey> {
-    let mnemonic_parsed =
-        bip39::Mnemonic::parse(mnemonic).map_err(|_| Error::Nip06("invalid mnemonic"))?;
+    let mnemonic_parsed = bip39::Mnemonic::parse(mnemonic).map_err(|_| Error::Nip06("invalid mnemonic"))?;
     let seed = mnemonic_parsed.to_seed(passphrase);
 
     let (mut k, mut c) = master_from_seed(&seed)?;
 
     // m/44'/1237'/account'/0/0
-    let path = [
-        44 | HARDENED,
-        NOSTR_COIN | HARDENED,
-        account | HARDENED,
-        0,
-        0,
-    ];
+    let path = [44 | HARDENED, NOSTR_COIN | HARDENED, account | HARDENED, 0, 0];
     for &index in &path {
         let (nk, nc) = derive_child(&k, &c, index)?;
         k.zeroize();
@@ -53,8 +46,8 @@ pub fn derive(mnemonic: &str, passphrase: &str, account: u32) -> Result<SecretKe
 }
 
 fn master_from_seed(seed: &[u8]) -> Result<([u8; 32], [u8; 32])> {
-    let mut mac = <HmacSha512 as Mac>::new_from_slice(b"Bitcoin seed")
-        .map_err(|_| Error::Nip06("hmac init"))?;
+    let mut mac =
+        <HmacSha512 as Mac>::new_from_slice(b"Bitcoin seed").map_err(|_| Error::Nip06("hmac init"))?;
     mac.update(seed);
     let i = mac.finalize().into_bytes();
     let mut k = [0u8; 32];
@@ -66,13 +59,8 @@ fn master_from_seed(seed: &[u8]) -> Result<([u8; 32], [u8; 32])> {
     Ok((k, c))
 }
 
-fn derive_child(
-    parent_k: &[u8; 32],
-    parent_c: &[u8; 32],
-    index: u32,
-) -> Result<([u8; 32], [u8; 32])> {
-    let mut mac =
-        <HmacSha512 as Mac>::new_from_slice(parent_c).map_err(|_| Error::Nip06("hmac init"))?;
+fn derive_child(parent_k: &[u8; 32], parent_c: &[u8; 32], index: u32) -> Result<([u8; 32], [u8; 32])> {
+    let mut mac = <HmacSha512 as Mac>::new_from_slice(parent_c).map_err(|_| Error::Nip06("hmac init"))?;
 
     if index >= HARDENED {
         // Hardened: 0x00 || k_parent || i_be
@@ -109,9 +97,8 @@ fn derive_child(
 
 fn scalar_from_bytes(bytes: &[u8; 32]) -> Result<Scalar> {
     let ga = GenericArray::from_slice(bytes);
-    let sp: ScalarPrimitive<k256::Secp256k1> = ScalarPrimitive::from_bytes(ga)
-        .into_option()
-        .ok_or(Error::Nip06("scalar out of range"))?;
+    let sp: ScalarPrimitive<k256::Secp256k1> =
+        ScalarPrimitive::from_bytes(ga).into_option().ok_or(Error::Nip06("scalar out of range"))?;
     let s: Scalar = sp.into();
     if bool::from(s.is_zero()) {
         return Err(Error::Nip06("zero scalar"));
@@ -126,9 +113,8 @@ fn scalar_from_bytes_allow_zero(bytes: &[u8]) -> Result<Scalar> {
     let mut buf = [0u8; 32];
     buf.copy_from_slice(bytes);
     let ga = GenericArray::from_slice(&buf);
-    let sp: ScalarPrimitive<k256::Secp256k1> = ScalarPrimitive::from_bytes(ga)
-        .into_option()
-        .ok_or(Error::Nip06("IL out of range"))?;
+    let sp: ScalarPrimitive<k256::Secp256k1> =
+        ScalarPrimitive::from_bytes(ga).into_option().ok_or(Error::Nip06("IL out of range"))?;
     Ok(sp.into())
 }
 
@@ -142,8 +128,7 @@ mod tests {
     use super::*;
 
     // NIP-06 official test vectors
-    const MN1: &str =
-        "leader monkey parrot ring guide accident before fence cannon height naive bean";
+    const MN1: &str = "leader monkey parrot ring guide accident before fence cannon height naive bean";
     const SK1_HEX: &str = "7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a";
 
     const MN2: &str = "what bleak badge arrange retreat wolf trade produce cricket blur garlic valid proud rude strong choose busy staff weather area salt hollow arm fade";

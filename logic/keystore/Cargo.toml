@@ -3,19 +3,19 @@
 
 [package]
 name = "keystore"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
 
 [dependencies]
-nostr-core.workspace = true
-aes-gcm = { workspace = true, features = ["std"] }
-hkdf = { workspace = true, features = ["std"] }
-sha2 = { workspace = true, features = ["std"] }
-serde = { workspace = true, features = ["std"] }
-serde_json = { workspace = true, features = ["std"] }
-thiserror.workspace = true
-zeroize.workspace = true
-rand_core = { workspace = true, features = ["std"] }
-getrandom.workspace = true
-hex = { workspace = true, features = ["std"] }
+nostr-core = { path = "../nostr-core" }
+aes-gcm = { version = "0.10", default-features = false, features = ["alloc", "aes", "std"] }
+hkdf = { version = "0.12", default-features = false, features = ["std"] }
+sha2 = { version = "0.10", default-features = false, features = ["std"] }
+serde = { version = "1", default-features = false, features = ["derive", "alloc", "std"] }
+serde_json = { version = "1", default-features = false, features = ["alloc", "std"] }
+thiserror = "1"
+zeroize = { version = "1.7", features = ["derive"] }
+rand_core = { version = "0.6", default-features = false, features = ["std"] }
+getrandom = "0.2"
+hex = { version = "0.4", default-features = false, features = ["alloc", "std"] }

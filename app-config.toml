@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Foundation application configuration
+app-name = "gui-app-nostr-signer"
+friendly-app-name = "Nostr Signer"
+launcher-app-name = "Nostr Signer"
+description = "Nostr signer for Passport Prime"
+icon = "resources/icon.svg"
+app-id = "0x1f8f092a30b7425273d9b15d5f3dd8c8"
+version = "0.1.0"
+min-keyos-version = "1.0.0"
+
+[publisher]
+name = "Foundation Devices, Inc."
+contact-email = "hello@foundation.xyz"
+support-url = "https://foundation.xyz"
+
+[permissions]
+template = ["gui-app", "fs-generic"]
+"os/security" = [
+    "GetAppSeed",
+    "GetSeed",
+]
+"os/usbdev" = [
+    "RegisterInterface",
+    "ReadEndpoint",
+    "WriteEndpoint",
+    "SetEndpointStalled",
+    "WaitForConnection",
+    "ResetController",
+]

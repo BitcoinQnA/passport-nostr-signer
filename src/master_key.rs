@@ -18,8 +18,6 @@ pub struct KeyOsAppSeedSource;
 impl MasterKeySource for KeyOsAppSeedSource {
     fn app_seed(&self) -> Result<[u8; 32]> {
         let security = Security::default();
-        security
-            .app_seed()
-            .map_err(|_| Error::Aead("security.app_seed: access denied"))
+        security.app_seed().map_err(|_| Error::Aead("security.app_seed: access denied"))
     }
 }

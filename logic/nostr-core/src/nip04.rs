@@ -12,8 +12,7 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use cbc::{Decryptor, Encryptor};
 use cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use k256::{
-    elliptic_curve::sec1::ToEncodedPoint, AffinePoint, ProjectivePoint, PublicKey as K256Pub,
-    Scalar,
+    elliptic_curve::sec1::ToEncodedPoint, AffinePoint, ProjectivePoint, PublicKey as K256Pub, Scalar,
 };
 
 use crate::{Error, PublicKey, Result, SecretKey};
@@ -46,15 +45,13 @@ pub fn encrypt(sk: &SecretKey, peer: &PublicKey, plaintext: &str) -> Result<Stri
     let key = shared_secret(sk, peer)?;
     let mut iv = [0u8; 16];
     getrandom::getrandom(&mut iv).map_err(|_| Error::Nip04("rng failed"))?;
-    let ct = Aes256CbcEnc::new((&key).into(), (&iv).into())
-        .encrypt_padded_vec_mut::<Pkcs7>(plaintext.as_bytes());
+    let ct =
+        Aes256CbcEnc::new((&key).into(), (&iv).into()).encrypt_padded_vec_mut::<Pkcs7>(plaintext.as_bytes());
     Ok(format!("{}?iv={}", B64.encode(&ct), B64.encode(iv)))
 }
 
 pub fn decrypt(sk: &SecretKey, peer: &PublicKey, payload: &str) -> Result<String> {
-    let (ct_b64, iv_b64) = payload
-        .split_once("?iv=")
-        .ok_or(Error::Nip04("missing ?iv= delimiter"))?;
+    let (ct_b64, iv_b64) = payload.split_once("?iv=").ok_or(Error::Nip04("missing ?iv= delimiter"))?;
     let ct = B64.decode(ct_b64)?;
     let iv = B64.decode(iv_b64)?;
     if iv.len() != 16 {
@@ -81,9 +78,8 @@ fn sk_to_scalar(sk: &SecretKey) -> Result<Scalar> {
     use k256::elliptic_curve::generic_array::GenericArray;
     use k256::elliptic_curve::scalar::ScalarPrimitive;
     let ga = GenericArray::from_slice(sk.as_bytes());
-    let sp: ScalarPrimitive<k256::Secp256k1> = ScalarPrimitive::from_bytes(ga)
-        .into_option()
-        .ok_or(Error::InvalidKey)?;
+    let sp: ScalarPrimitive<k256::Secp256k1> =
+        ScalarPrimitive::from_bytes(ga).into_option().ok_or(Error::InvalidKey)?;
     Ok(sp.into())
 }
 
