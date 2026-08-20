@@ -8,3 +8,10 @@ ui/gen/
 *.zip
 /.envrc
 /ui/ui
+# Foundation SDK project-local mapping + generated manifest (owned by the CLI)
+.foundation-sdk/
+manifest.toml
+# SDK shared resource symlinks materialized by the CLI at build time
+/resources/fonts
+/resources/icons
+/resources/images

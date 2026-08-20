@@ -163,14 +163,27 @@ behind a confirmation, for transferring the identity to another signer.
 
 ## Building
 
-This is a KeyOS app and builds **inside a KeyOS workspace** (it depends on KeyOS
-crates such as `slint_keyos_platform`, `security`, `server`, and `usb`). See
-[`SDK-SETUP.md`](SDK-SETUP.md) for the toolchain and integration, and
-[`TESTING.md`](TESTING.md) for the end-to-end test. In a KeyOS checkout the app
-lives at `apps/gui-app-nostr-signer`.
+This is a **self-contained Foundation SDK app**. Clone it and build with the
+Foundation SDK; **no KeyOS source checkout and no private-repo access are
+required**. The KeyOS platform crates (`slint-keyos-platform`, `security`,
+`server`, `usb`, ...) are provided by the installed SDK, which the CLI maps into
+the project under `.foundation-sdk/` (gitignored) at build time.
 
-Unlike a typical app, the on-device USB transport also needs two small KeyOS USB
-(PIO) fixes — see [`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md) and
+```bash
+foundation doctor            # verify the SDK toolchain
+foundation cert gen <name>   # one-time signing identity
+foundation build --release   # build + sign for the device
+foundation sideload --release # install onto a Passport Prime (1.4 beta)
+foundation sim               # or run in the hosted simulator, no hardware
+```
+
+Full details, including Developer Mode / Airlock requirements, are in
+[`SDK-SETUP.md`](SDK-SETUP.md); the end-to-end test is in
+[`TESTING.md`](TESTING.md).
+
+The on-device WebUSB transport relies on two small KeyOS USB-stack fixes (a
+KeyOS-side concern, not this app) — see
+[`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md) and
 [`docs/keyos-pio-fixes.patch`](docs/keyos-pio-fixes.patch).
 
 The extension installs unpacked (`chrome://extensions` → Developer mode → Load

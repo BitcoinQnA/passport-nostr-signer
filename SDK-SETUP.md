@@ -3,115 +3,100 @@ SPDX-FileCopyrightText: 2026 Foundation Devices, Inc. <hello@foundation.xyz>
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Nostr Signer — SDK setup & integration
+# Nostr Signer — Foundation SDK setup
 
-## Is this an "SDK app"? Yes.
+This app is a **self-contained Foundation SDK app**. You do not need a KeyOS
+source checkout, and you do not need access to any private Foundation
+repository. The KeyOS platform crates come from the installed Foundation SDK,
+which the CLI maps into the project under `.foundation-sdk/` (gitignored) at
+build time.
 
-The official Foundation developer docs (<https://docs.foundation.xyz/developers>)
-describe an `app-config.toml` + `foundation sideload` flow. The **shipped
-`foundation` CLI is ahead-of / behind those docs**: running
-`foundation new <name> --template multi-page-app` produces a project that is
-**structurally identical to this one** — a `manifest.toml` (not `app-config.toml`),
-the same `slint-keyos-platform` path-deps, the same `src/main.rs` + `ui/pages/*`
-+ `build.rs` + `resources/icon.svg` + `i18n/en.json` layout, the `app!()` macro,
-and the `@ui` widget library. So **`manifest.toml` is the real SDK manifest**,
-and this app already conforms to the SDK project shape.
+Target: **Passport Prime running the KeyOS 1.4 beta**.
 
-**CLI maturity (important):** at the time of writing only `foundation new` and
-`foundation develop` are implemented; `sim`, `sideload`, and `cert` are not. So
-the CLI can scaffold a project and open the Nix dev shell, but it cannot yet
-build or install to hardware. Use KeyOS's own `cargo xtask` flow for that (it is
-the same toolchain the CLI will eventually wrap).
+## 1. Install the Foundation SDK
 
-## Layout vs. the SDK template
-
-| SDK template (`foundation new`) | This repo |
-|---|---|
-| `manifest.toml` | ✅ `manifest.toml` |
-| `Cargo.toml`, `build.rs` | ✅ |
-| `src/main.rs` + `ui/app.slint` + `ui/pages/*` | ✅ |
-| `resources/icon.svg` | ✅ |
-| `i18n/en.json` | ✅ (scaffold — see note) |
-| — | `logic/` vendored crates, `extension/`, `docs/` (this app's extras) |
-
-> **i18n note.** `i18n/en.json` is present for SDK-template parity and as the
-> localization source-of-truth, but strings are currently inline in the Slint
-> pages (`build.rs` sets `include_translations: false`). Wiring `@tr`/keyed
-> lookups through the pages is a follow-up; the JSON already mirrors every
-> user-facing string.
-
-## Build & run (today, via `cargo xtask`)
-
-From a KeyOS checkout with this app integrated (see below):
+Install the Foundation SDK bundle for your OS and put its `foundation` binary on
+`PATH`, then verify:
 
 ```bash
-# Type/borrow-check the app for BOTH device (ARM/xous) and the simulator:
-cargo xtask check gui-app-nostr-signer
-
-# Run the hosted simulator (opens the Passport window):
-just sim            # or: cargo xtask run --hosted
+foundation doctor
 ```
 
-The app appears in the dev **Secret Menu** / hidden-apps launcher list. For the
-end-to-end browser test, see [`TESTING.md`](TESTING.md).
-
-**Device image build** (full flashable firmware) is done on **Ubuntu** (the
-supported build host) or inside the KeyOS Nix flake; macOS is not supported for
-the full image (an unrelated `rfal-sys` NFC `build.rs` step needs Linux/Nix
-headers). Once in that environment:
+Fix anything it flags. If it reports the **KeyOS target** or **Nix shell** as
+missing, enter the SDK environment once (this provides the `rust-keyos`
+toolchain that supplies the `armv7a-unknown-xous-elf` device target):
 
 ```bash
-cargo xtask build && cargo xtask flash    # signed image + flash over USB (SAM-BA)
+foundation develop
 ```
 
-## Integrating into a KeyOS checkout
+## 2. Create a signing identity (one time)
 
-This repo is the app plus its vendored logic and companion extension. To build
-it you drop the app into a KeyOS workspace. From a clean KeyOS checkout:
+Sideloading installs a *signed* app bundle, so create a local publisher identity
+(long-lived, stored under `~/.foundation/signing/<name>`):
 
-1. **Copy the app in** (the whole repo minus the host-side extras):
+```bash
+foundation cert gen <name>
+```
 
-   ```bash
-   mkdir -p <keyos>/apps/gui-app-nostr-signer
-   # copy: Cargo.toml manifest.toml build.rs src/ ui/ resources/ i18n/ logic/
-   ```
+## 3. Build
 
-   The app path-depends into its own bundled `logic/` sub-workspace
-   (`logic/nostr-core`, `logic/keystore`, `logic/protocol`), so `logic/` rides
-   inside the app directory — nothing else to place.
+From the repository root:
 
-2. **Register it in the workspace** (`<keyos>/Cargo.toml`):
-   - add `"apps/gui-app-nostr-signer"` to `[workspace].members`
-   - ensure `[workspace].exclude` covers the nested logic workspace, e.g.
-     `exclude = ["logic", "apps/gui-app-nostr-signer/logic"]`
+```bash
+foundation build --release
+```
 
-3. **Hook the launcher + build lists** (mirrors the reference integration):
-   - `os/gui-app-launcher/src/main.rs` — add a `HiddenApp { label: "Nostr
-     Signer", app_id: "0x1f8f092a30b7425273d9b15d5f3dd8c8" }` entry.
-   - `xtask/src/main.rs` — add `"gui-app-nostr-signer"` to `DEV_APPS` and to
-     `DEFAULT_SERVICES_HOSTED` (so it builds for device and the simulator).
+The CLI resolves the KeyOS platform crates from the SDK (via `.foundation-sdk/`),
+generates the Slint UI, compiles for the device target, and signs the bundle.
+Output lands in `target/keyos/gui-app-nostr-signer/` (`app.elf`,
+`manifest.json`, `icon.bin`, `resources`).
 
-4. **Apply the USB (PIO) fixes.** The on-device WebUSB transport relies on two
-   small fixes to the KeyOS USB stack (an IRQ-storm guard and a multi-packet
-   OUT truncation fix). Apply [`docs/keyos-pio-fixes.patch`](docs/keyos-pio-fixes.patch)
-   and read [`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md). The simulator
-   (WebSocket transport) does not need these.
+To run it in the hosted simulator instead (no hardware needed):
 
-After that, `cargo xtask check gui-app-nostr-signer` should pass for both
-targets.
+```bash
+foundation sim
+```
 
-## Adopting the official `foundation` CLI later
+## 4. Sideload to Passport Prime
 
-Once `foundation sim`/`sideload`/`cert` ship, the migration is mechanical:
-`foundation new nostr-signer --template multi-page-app`, then move `src/`,
-`ui/`, `resources/`, `i18n/`, `logic/`, and `manifest.toml` into the scaffold —
-the layout already matches. `foundation sideload` would then push the signed app
-bundle over USB without a full firmware rebuild.
+Connect a Passport Prime running the 1.4 beta over USB with **Developer Mode**
+enabled and **Airlock** in Read/Write mode, then:
 
-## Open items
+```bash
+foundation sideload --release
+```
 
-- Full signed device image + sideload via the `foundation` CLI (pending CLI
-  `build`/`sideload`).
-- Wire `i18n/en.json` through the Slint pages (currently inline strings).
-- Production USB VID/PID assignment for the vendor-class WebUSB interface (see
-  [`docs/PROTOCOL.md`](docs/PROTOCOL.md)).
+This copies the signed bundle to the device and launches it. Use `--no-run` to
+copy without launching.
+
+## Generated, CLI-owned paths (never commit these)
+
+The CLI owns and regenerates these; they are gitignored:
+
+- `.foundation-sdk/` — the project-local SDK mapping (KeyOS crates + the `@ui`
+  component surface). Do not replace it with a path to a local KeyOS checkout.
+- `ui/ui` — the generated shared `@ui` component surface
+- `manifest.toml` — generated from `app-config.toml`
+- `target/` — build output
+
+Reset generated state with `foundation clean`, then rebuild.
+
+## App identity and permissions
+
+- `app-config.toml` is the authored manifest: app ID, icon, version,
+  `min-keyos-version`, publisher, and permissions. `manifest.toml` is generated
+  from it.
+- The app ID `0x1f8f092a30b7425273d9b15d5f3dd8c8` is stable. KeyOS derives the
+  app seed (and therefore every seed-derived Nostr identity) from it, so never
+  change it for an upgrade.
+
+## On-device USB (WebUSB) note
+
+The on-device transport is a vendor-class WebUSB interface. It depends on two
+small KeyOS USB-stack fixes documented in
+[`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md) and
+[`docs/keyos-pio-fixes.patch`](docs/keyos-pio-fixes.patch). These are KeyOS-side,
+not part of this app; a device whose KeyOS build predates them may need them for
+reliable WebUSB. See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the wire protocol
+and [`extension/README.md`](extension/README.md) for the browser side.
