@@ -184,8 +184,10 @@ export global Utils {
     pure callback get-rgb(color) -> [int];
     pure callback color-from-hsl(float, float, float, float) -> color;
     pure callback color-from-rgb(int, int, int, int) -> color;
-    pure callback shorten-string(string, int) -> string;
+    pure callback shorten-string(string, int, bool) -> string;
     pure callback check-bounds(string, string, string) -> string;
+    pure callback is-in-bounds(string, string, string) -> bool;
+    pure callback exceeds-maximum(string, string) -> bool;
     pure callback increment-string(string) -> string;
     pure callback decrement-string(string) -> string;
     pure callback filter-special-characters(string) -> string;

@@ -9,20 +9,19 @@ authors = ["Foundation Devices, Inc. <hello@foundation.xyz>"]
 license = "GPL-3.0-or-later"
 
 [workspace]
-exclude = ["logic"]
-
-[patch.crates-io]
-getrandom = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+exclude = [".foundation-sdk", "logic"]
 
 [dependencies]
-# KeyOS plumbing
+# KeyOS platform crates come from the project-local SDK mapping that the
+# Foundation CLI creates automatically under .foundation-sdk/. No KeyOS source
+# checkout, and no access to any private Foundation repo, is required to build.
 log = "0.4"
-log-server = { package = "xous-api-log", git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
-security = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+log-server = { package = "xous-api-log", path = ".foundation-sdk/current/lib/keyos/xous/api/log" }
+security = { path = ".foundation-sdk/current/lib/keyos/api/security" }
+server = { path = ".foundation-sdk/current/lib/keyos/server" }
+slint-keyos-platform = { path = ".foundation-sdk/current/lib/keyos/slint-keyos-platform/runtime" }
+usb = { path = ".foundation-sdk/current/lib/keyos/api/usb" }
 serde = { version = "1", features = ["derive"] }
-server = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
-slint-keyos-platform = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
-usb = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
 
 # Cross-target utilities
 async-trait = "0.1"
@@ -52,10 +51,27 @@ futures-util = { version = "0.3", default-features = false, features = ["std", "
 dirs = "5"
 
 [target.'cfg(target_os = "xous")'.dependencies]
-xous = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+xous = { path = ".foundation-sdk/current/lib/keyos/xous/xous-rs" }
 
 [build-dependencies]
-slint-keyos-platform-build = { git = "ssh://git@github.com/Foundation-Devices/KeyOS-Dev.git", rev = "c26c80a1b77553cebad0bd71cd4c4af0289b4a1c" }
+slint-keyos-platform-build = { path = ".foundation-sdk/current/lib/keyos/slint-keyos-platform/build", default-features = false }
+
+[patch.crates-io]
+# getrandom needs the KeyOS-provided xous backend on device.
+getrandom = { path = ".foundation-sdk/current/lib/keyos/imports/getrandom" }
+# Pin the whole Slint graph to the exact Foundation fork shipped by the 1.4 SDK
+# so two Slint ABIs cannot enter the device link.
+slint = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+slint-build = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+slint-macros = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+i-slint-common = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+i-slint-compiler = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+i-slint-core = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+i-slint-core-macros = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+i-slint-backend-selector = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+i-slint-renderer-software = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+const-field-offset = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+const-field-offset-macro = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(keyos)'] }
