@@ -91,12 +91,10 @@ Reset generated state with `foundation clean`, then rebuild.
   app seed (and therefore every seed-derived Nostr identity) from it, so never
   change it for an upgrade.
 
-## On-device USB (WebUSB) note
+## On-device host transport
 
-The on-device transport is a vendor-class WebUSB interface. It depends on two
-small KeyOS USB-stack fixes documented in
-[`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md) and
-[`docs/keyos-pio-fixes.patch`](docs/keyos-pio-fixes.patch). These are KeyOS-side,
-not part of this app; a device whose KeyOS build predates them may need them for
-reliable WebUSB. See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the wire protocol
-and [`extension/README.md`](extension/README.md) for the browser side.
+SDK 1.4 does not expose raw USB or a public QuantumLink transport to third-party
+apps. The device build reports an offline host-link status and requests no USB
+permissions. WebSocket remains available in the simulator. The earlier WebUSB
+prototype is documented as design history in
+[`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md).

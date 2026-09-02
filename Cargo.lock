@@ -12,12 +12,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "adler"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -106,7 +100,7 @@ dependencies = [
  "ndk",
  "ndk-context",
  "ndk-sys",
- "num_enum 0.7.6",
+ "num_enum",
  "thiserror 2.0.18",
 ]
 
@@ -177,13 +171,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "armv7"
-version = "0.2.1"
-dependencies = [
- "tock-registers",
 ]
 
 [[package]]
@@ -345,20 +332,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "atsama5d27"
-version = "0.1.0"
-dependencies = [
- "armv7",
- "bitfield",
- "bitflags 2.13.0",
- "png-decoder",
- "r0",
- "rkyv",
- "utralib",
- "vcell",
-]
-
-[[package]]
 name = "auto_enums"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -428,7 +401,7 @@ dependencies = [
  "addr2line",
  "cfg-if",
  "libc",
- "miniz_oxide 0.8.9",
+ "miniz_oxide",
  "object",
  "rustc-demangle",
  "windows-link",
@@ -531,12 +504,6 @@ checksum = "e0982261c82a50d89d1a411602afee0498b3e0debe3d36693f0c661352809639"
 dependencies = [
  "hex-conservative 0.3.2",
 ]
-
-[[package]]
-name = "bitfield"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c821a6e124197eb56d907ccc2188eab1038fb919c914f47976e64dd8dbc855d1"
 
 [[package]]
 name = "bitflags"
@@ -936,7 +903,6 @@ dependencies = [
 [[package]]
 name = "const-field-offset"
 version = "0.2.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "const-field-offset-macro",
  "field-offset",
@@ -945,7 +911,6 @@ dependencies = [
 [[package]]
 name = "const-field-offset-macro"
 version = "0.2.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -957,12 +922,6 @@ name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
-
-[[package]]
-name = "convert_case"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "convert_case"
@@ -1247,7 +1206,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
 dependencies = [
- "convert_case 0.10.0",
+ "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version",
@@ -1392,17 +1351,6 @@ dependencies = [
  "elliptic-curve",
  "signature",
  "spki",
-]
-
-[[package]]
-name = "ehci"
-version = "0.1.1"
-dependencies = [
- "bitfield",
- "log",
- "rkyv",
- "vcell",
- "zerocopy",
 ]
 
 [[package]]
@@ -1551,7 +1499,7 @@ dependencies = [
  "bit_field",
  "half",
  "lebe",
- "miniz_oxide 0.8.9",
+ "miniz_oxide",
  "num-complex",
  "pulp",
  "rayon-core",
@@ -1660,7 +1608,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
- "miniz_oxide 0.8.9",
+ "miniz_oxide",
 ]
 
 [[package]]
@@ -2111,7 +2059,6 @@ dependencies = [
  "slint-keyos-platform-build",
  "tokio",
  "tokio-tungstenite",
- "usb",
  "uuid",
  "xous",
  "xous-api-log",
@@ -2305,7 +2252,6 @@ checksum = "6dbf3de79e51f3d586ab4cb9d5c3e2c14aa28ed23d180cf89b4df0454a69cc87"
 [[package]]
 name = "i-slint-backend-linuxkms"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
@@ -2323,7 +2269,6 @@ dependencies = [
 [[package]]
 name = "i-slint-backend-selector"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "cfg-if",
  "cfg_aliases",
@@ -2338,7 +2283,6 @@ dependencies = [
 [[package]]
 name = "i-slint-backend-testing"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "cfg_aliases",
  "i-slint-common",
@@ -2350,7 +2294,6 @@ dependencies = [
 [[package]]
 name = "i-slint-backend-winit"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "block2 0.6.2",
  "bytemuck",
@@ -2391,7 +2334,6 @@ dependencies = [
 [[package]]
 name = "i-slint-common"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "derive_more",
  "fontique",
@@ -2407,7 +2349,6 @@ dependencies = [
 [[package]]
 name = "i-slint-compiler"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "annotate-snippets",
  "by_address",
@@ -2420,7 +2361,7 @@ dependencies = [
  "linked_hash_set",
  "lyon_extra",
  "lyon_path",
- "num_enum 0.7.6",
+ "num_enum",
  "proc-macro2",
  "quote",
  "rayon",
@@ -2439,7 +2380,6 @@ dependencies = [
 [[package]]
 name = "i-slint-core"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "auto_enums",
  "bitflags 2.13.0",
@@ -2490,7 +2430,6 @@ dependencies = [
 [[package]]
 name = "i-slint-core-macros"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "quote",
  "serde_json",
@@ -2500,7 +2439,6 @@ dependencies = [
 [[package]]
 name = "i-slint-renderer-skia"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "bytemuck",
  "cfg-if",
@@ -2536,7 +2474,6 @@ dependencies = [
 [[package]]
 name = "i-slint-renderer-software"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "bytemuck",
  "clru",
@@ -3863,16 +3800,6 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a92518e98c078586bc6c934028adcca4c92a53d6a958196de835170a01d84e4b"
-dependencies = [
- "adler",
- "autocfg",
-]
-
-[[package]]
-name = "miniz_oxide"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
@@ -3957,7 +3884,7 @@ dependencies = [
  "jni-sys 0.3.1",
  "log",
  "ndk-sys",
- "num_enum 0.7.6",
+ "num_enum",
  "raw-window-handle",
  "thiserror 1.0.69",
 ]
@@ -4140,32 +4067,12 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f646caf906c20226733ed5b1374287eb97e3c2a5c227ce668c1f2ce20ae57c9"
-dependencies = [
- "num_enum_derive 0.5.11",
-]
-
-[[package]]
-name = "num_enum"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d0bca838442ec211fa11de3a8b0e0e8f3a4522575b5c4c06ed722e005036f26"
 dependencies = [
- "num_enum_derive 0.7.6",
+ "num_enum_derive",
  "rustversion",
-]
-
-[[package]]
-name = "num_enum_derive"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcbff9bc912032c62bf65ef1d5aea88983b420f4f839db1e9b0c281a25c9c799"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -4854,7 +4761,7 @@ dependencies = [
  "crc32fast",
  "fdeflate",
  "flate2",
- "miniz_oxide 0.8.9",
+ "miniz_oxide",
 ]
 
 [[package]]
@@ -4867,18 +4774,7 @@ dependencies = [
  "crc32fast",
  "fdeflate",
  "flate2",
- "miniz_oxide 0.8.9",
-]
-
-[[package]]
-name = "png-decoder"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e3e93d4884a2609f2dccbafabd3e25c49e89bb872ab84bfea60feaf17615944"
-dependencies = [
- "crc32fast",
- "miniz_oxide 0.4.4",
- "num_enum 0.5.11",
+ "miniz_oxide",
 ]
 
 [[package]]
@@ -5115,15 +5011,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
 
 [[package]]
-name = "quick-xml"
-version = "0.41.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5143,12 +5030,6 @@ name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
-
-[[package]]
-name = "r0"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd7a31eed1591dcbc95d92ad7161908e72f4677f8fabf2a32ca49b4237cbf211"
 
 [[package]]
 name = "rancor"
@@ -6010,7 +5891,6 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 [[package]]
 name = "slint"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-selector",
@@ -6029,7 +5909,6 @@ dependencies = [
 [[package]]
 name = "slint-build"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "derive_more",
  "fontique",
@@ -6131,7 +6010,6 @@ dependencies = [
 [[package]]
 name = "slint-macros"
 version = "1.17.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -6321,14 +6199,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7401a30af6cb5818bb64852270bb722533397edcfc7344954a38f420819ece2"
 
 [[package]]
-name = "svd2utra"
-version = "0.1.15"
-dependencies = [
- "convert_case 0.4.0",
- "quick-xml",
-]
-
-[[package]]
 name = "svgtypes"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6357,17 +6227,6 @@ dependencies = [
  "skrifa 0.44.0",
  "yazi",
  "zeno",
-]
-
-[[package]]
-name = "syn"
-version = "1.0.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-ident",
 ]
 
 [[package]]
@@ -6620,12 +6479,6 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
-
-[[package]]
-name = "tock-registers"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "696941a0aee7e276a165a978b37918fd5d22c55c3d6bda197813070ca9c0f21c"
 
 [[package]]
 name = "tokio"
@@ -7018,20 +6871,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "usb"
-version = "0.1.0"
-dependencies = [
- "atsama5d27",
- "ehci",
- "log",
- "rkyv",
- "server",
- "thiserror 2.0.18",
- "uuid",
- "xous",
-]
-
-[[package]]
 name = "usvg"
 version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7105,13 +6944,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
-name = "utralib"
-version = "0.1.17"
-dependencies = [
- "svd2utra",
-]
-
-[[package]]
 name = "uuid"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7133,12 +6965,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vcell"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77439c1b53d2303b20d9459b1ade71a83c716e3f9c34f3228c00e6f185d6c002"
-
-[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7147,7 +6973,6 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "vtable"
 version = "0.4.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "const-field-offset",
  "portable-atomic",
@@ -7158,7 +6983,6 @@ dependencies = [
 [[package]]
 name = "vtable-macro"
 version = "0.4.0"
-source = "git+https://github.com/Foundation-Devices/slint.git?tag=v1.17.0-foundation2#209020240ba31cc39afcbdcdaf32ce20f8aa28da"
 dependencies = [
  "proc-macro2",
  "quote",

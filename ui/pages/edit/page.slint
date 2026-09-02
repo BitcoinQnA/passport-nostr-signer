@@ -88,7 +88,7 @@ export component EditPagePage inherits Rectangle {
 
                     // ----- Advanced options (add mode, Generate path) -----
                     // Lets power users pick the NIP-06 account index so we
-                    // can derive a second identity from the same device seed
+                    // can derive a second identity from the app key
                     // (m/44'/1237'/{account}'/0/0). Defaults to 0.
                     if props.version == EditPageVersion.add: ShowHide {
                         text: "Advanced options";
@@ -100,7 +100,8 @@ export component EditPagePage inherits Rectangle {
                             bounded-number: true;
                             minimum: "0";
                             maximum: "2147483647";
-                            message: "Different accounts derive independent keys from the same seed. Vault’s nostr keys start at 0.";
+                            // TODO: localize
+                            message: "Different accounts derive independent keys from this app's protected key. Vault's Nostr keys start at 0.";
                             has-notice: false;
 
                             edited(text) => {

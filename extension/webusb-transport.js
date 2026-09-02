@@ -3,8 +3,7 @@
 // app on Passport Prime, which exposes a vendor-class USB interface
 // (class/subclass/protocol = 0xFF/0xFF/0xFF) with two 64-byte Interrupt
 // endpoints plus WebUSB + MS OS 2.0 Platform Capability descriptors.
-// Device-side code:
-//   KeyOS/apps/gui-app-nostr-signer/src/transport/webusb.rs
+// Retained for a future public KeyOS host transport; SDK 1.4 has no device side.
 //
 // Pairing model: the options page calls navigator.usb.requestDevice()
 // (which needs a user gesture) to get a persistent grant. Subsequent

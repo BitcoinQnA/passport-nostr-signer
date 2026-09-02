@@ -15,17 +15,19 @@ rule that you configured on Passport Prime.
 It has two halves that ship together in this repo:
 
 - **`/` (the KeyOS app)** — a Rust + Slint application that holds the keys,
-  derives new Nostr identities deterministically from the device seed, seals
+  derives new Nostr identities deterministically from its protected app seed, seals
   identity records with the app seed, and shows an on-device approval screen
   for signing, encryption, and decryption requests that are not covered by an
   owner-configured auto-sign rule.
 - **`extension/` (the browser extension)** — a Chromium extension that
   implements the standard NIP-07 `window.nostr` surface and relays requests to
-  Passport over WebUSB (or WebSocket against the simulator).
+  the simulator over WebSocket. Its experimental WebUSB client is retained for
+  a future public KeyOS host transport.
 
-> **Proof-of-concept.** This is a KeyOS application (it builds inside a KeyOS
-> workspace, not standalone — see [Building](#building)) plus a companion
-> extension. Validated on a Passport Prime dev unit over WebUSB.
+> **Proof-of-concept.** The app is a standalone Foundation SDK project. The
+> signer UI and crypto run on Passport Prime, but SDK 1.4 does not expose a
+> public app-owned USB or QuantumLink transport, so browser signing on hardware
+> is unavailable in this build.
 
 ## Quickstart
 
@@ -76,8 +78,8 @@ See [`TESTING.md`](TESTING.md) for the full end-to-end walkthrough and
 
 Load the extension unpacked (`chrome://extensions` -> Developer mode -> Load
 unpacked -> [`extension/`](extension)), allow a site, and sign a NIP-01 event in
-any NIP-07 client. On real hardware the extension talks to Passport over WebUSB;
-against the simulator, over WebSocket. See
+any NIP-07 client. The extension talks to the simulator over WebSocket. Hardware
+transport will require a public QuantumLink app API. See
 [`extension/README.md`](extension/README.md).
 
 > **Working with an AI agent?** Every layer has a doc: the wire protocol
@@ -124,9 +126,9 @@ behind a confirmation, for transferring the identity to another signer.
 ## How the keys stay safe
 
 - **Recoverable deterministic generation.** New identities are derived via
-  NIP-06 from the device seed (`m/44'/1237'/account'/0/0`), so the same seed
-  and account index can recover the same Nostr key. Imported `nsec` keys remain
-  supported for migration.
+  NIP-06 from the app-scoped seed (`m/44'/1237'/account'/0/0`). Restoring the
+  same device backup and installing the app with its unchanged app ID recovers
+  the same Nostr key. Imported `nsec` keys remain supported for migration.
 - **Sealed local storage.** Stored identity records are encrypted with the KeyOS
   app seed (`os/security` → `GetAppSeed`) before they touch the filesystem.
 - **Approval gate.** Every origin must first be allowed in the extension popup,
@@ -153,11 +155,11 @@ behind a confirmation, for transferring the identity to another signer.
   - **`protocol`** — the request/response wire types shared with the extension.
 - **`src/`** — the KeyOS/Slint app shell: the engine/dispatcher, the approval
   screen wiring, auto-sign policy enforcement, the QR import flow, and the
-  device-key wiring (app seed → master key). `transport/` carries WebUSB
-  (device) and WebSocket (simulator).
+  device-key wiring (app seed to master key). `transport/` carries WebSocket
+  for the simulator and an explicit offline status on device.
 - **`ui/`** — Slint pages under `ui/pages/*`; routing in `ui/gen/*` is generated
   by `build.rs` from each page's `props.slint`.
-- **`extension/`** — the Chromium WebUSB extension (NIP-07 provider).
+- **`extension/`** — the experimental Chromium NIP-07 provider.
 - **`i18n/en.json`** — user-facing strings (localization scaffold; see
   [SDK-SETUP.md](SDK-SETUP.md)).
 
@@ -166,7 +168,7 @@ behind a confirmation, for transferring the identity to another signer.
 This is a **self-contained Foundation SDK app**. Clone it and build with the
 Foundation SDK; **no KeyOS source checkout and no private-repo access are
 required**. The KeyOS platform crates (`slint-keyos-platform`, `security`,
-`server`, `usb`, ...) are provided by the installed SDK, which the CLI maps into
+`server`, ...) are provided by the installed SDK, which the CLI maps into
 the project under `.foundation-sdk/` (gitignored) at build time.
 
 ```bash
@@ -181,20 +183,17 @@ Full details, including Developer Mode / Airlock requirements, are in
 [`SDK-SETUP.md`](SDK-SETUP.md); the end-to-end test is in
 [`TESTING.md`](TESTING.md).
 
-The on-device WebUSB transport relies on two small KeyOS USB-stack fixes (a
-KeyOS-side concern, not this app) — see
-[`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md) and
-[`docs/keyos-pio-fixes.patch`](docs/keyos-pio-fixes.patch).
+The earlier raw-WebUSB experiment is retained only as design history in
+[`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md). It is not part of the SDK app.
 
 The extension installs unpacked (`chrome://extensions` → Developer mode → Load
 unpacked → `extension/`); see [`extension/README.md`](extension/README.md).
 
 ## Status
 
-Proof-of-concept, validated on a Passport Prime dev unit over WebUSB: add a key,
-expose `window.nostr` in the browser, sign a NIP-01 event with on-device
-approval or an owner-configured auto-sign rule, and verify the signature in a
-NIP-07 client.
+Proof-of-concept: key management, crypto, QR import, approval, and auto-sign
+policy logic are implemented. Simulator NIP-07 works over WebSocket. Hardware
+browser signing is pending a public KeyOS host transport.
 
 ## License
 

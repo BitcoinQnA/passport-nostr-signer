@@ -36,7 +36,8 @@ Simulator state lives beside the keystore in `.passport-nostr-signer-keyos` as
 `autosign.json`. On Prime, it lives in the app data directory.
 
 Auto-sign rules are device-local authorization state, not seed-derived key
-material. Restoring a device seed recovers deterministic Nostr keys, but a user
+material. Restoring the device backup and reinstalling the same app ID recovers
+deterministic Nostr keys, but a user
 should recreate auto-sign rules deliberately on the restored device.
 
 ## Recommended defaults

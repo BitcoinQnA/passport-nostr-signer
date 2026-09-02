@@ -1,11 +1,14 @@
-# Passport Prime Nostr Signer — Browser Extension (1.3 / WebUSB build)
+# Passport Prime Nostr Signer — Browser Extension
 
 Chromium browser extension that implements the NIP-07 `window.nostr`
 surface on top of the Passport Prime signer. The nsec never leaves the
 device; this extension only relays signing requests. Auto-sign rules, when
 used, are configured on Passport Prime and are not editable from the extension.
 
-This is the **1.3 build**: the hardware transport is WebUSB, matching
+The WebUSB client in this extension is an experimental prototype. The standalone
+SDK app cannot expose raw USB in SDK 1.4, so use WebSocket with the simulator.
+
+The prototype hardware transport matches
 the KeyOS `dev-v1.3.0` port of `gui-app-nostr-signer` which registers a
 vendor-class interface (class/subclass/protocol = `0xFF/0xFF/0xFF`)
 with two 64-byte Interrupt endpoints.

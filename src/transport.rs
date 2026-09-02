@@ -3,17 +3,13 @@
 
 //! Transport abstraction for the Nostr Signer.
 //!
-//! The same request/response engine runs behind either of two transports:
+//! The same request/response engine runs behind the hosted WebSocket transport.
 //!
 //!   - **WebSocket** on `cfg(not(keyos))` — used by the hosted-mode simulator so the browser extension can
 //!     reach the app during development.
 //!
-//!   - **WebUSB** on `cfg(keyos)` — the production path on Passport Prime hardware. The app registers a
-//!     vendor-class USB interface and the browser extension (browser-extension-1.3) reaches it via Chromium's
-//!     WebUSB API (`navigator.usb`). Wire format is newline-delimited JSON, chunked across 64-byte transfers.
-//!
-//! The split keeps the USB implementation off the host build (it needs the
-//! `os/usbdev` server which only exists on device).
+//! KeyOS SDK 1.4 does not expose a public app-owned USB transport. The device
+//! build therefore stays offline until QuantumLink exposes an app transport.
 
 use std::sync::{Mutex, OnceLock};
 
@@ -23,9 +19,17 @@ mod websocket;
 pub use websocket::serve;
 
 #[cfg(keyos)]
-mod webusb;
-#[cfg(keyos)]
-pub use webusb::serve;
+pub async fn serve<M>(
+    _engine: std::sync::Arc<crate::engine::Engine<M>>,
+    _bind: &str,
+) -> anyhow::Result<()>
+where
+    M: keystore::MasterKeySource + Send + Sync + 'static,
+{
+    // TODO: localize
+    set_status("Offline: host link requires public QuantumLink");
+    Ok(())
+}
 
 /// Shared, human-readable status line for the currently-running transport.
 /// Written by the transport worker; read by the UI banner poll-timer in
@@ -33,7 +37,7 @@ pub use webusb::serve;
 /// thread a Slint handle into the transport crate.
 pub fn status() -> &'static Mutex<String> {
     static INSTANCE: OnceLock<Mutex<String>> = OnceLock::new();
-    INSTANCE.get_or_init(|| Mutex::new("starting…".into()))
+    INSTANCE.get_or_init(|| Mutex::new("starting...".into()))
 }
 
 /// Convenience: replace the status string.

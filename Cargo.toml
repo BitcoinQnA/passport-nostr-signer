@@ -20,7 +20,6 @@ log-server = { package = "xous-api-log", path = ".foundation-sdk/current/lib/key
 security = { path = ".foundation-sdk/current/lib/keyos/api/security" }
 server = { path = ".foundation-sdk/current/lib/keyos/server" }
 slint-keyos-platform = { path = ".foundation-sdk/current/lib/keyos/slint-keyos-platform/runtime" }
-usb = { path = ".foundation-sdk/current/lib/keyos/api/usb" }
 serde = { version = "1", features = ["derive"] }
 
 # Cross-target utilities
@@ -59,19 +58,18 @@ slint-keyos-platform-build = { path = ".foundation-sdk/current/lib/keyos/slint-k
 [patch.crates-io]
 # getrandom needs the KeyOS-provided xous backend on device.
 getrandom = { path = ".foundation-sdk/current/lib/keyos/imports/getrandom" }
-# Pin the whole Slint graph to the exact Foundation fork shipped by the 1.4 SDK
-# so two Slint ABIs cannot enter the device link.
-slint = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-slint-build = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-slint-macros = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-i-slint-common = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-i-slint-compiler = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-i-slint-core = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-i-slint-core-macros = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-i-slint-backend-selector = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-i-slint-renderer-software = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-const-field-offset = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
-const-field-offset-macro = { git = "https://github.com/Foundation-Devices/slint.git", tag = "v1.17.0-foundation2" }
+# Keep the complete Slint graph on the SDK's packaged Foundation fork.
+slint = { path = ".foundation-sdk/current/lib/slint/api/rs/slint" }
+slint-build = { path = ".foundation-sdk/current/lib/slint/api/rs/build" }
+slint-macros = { path = ".foundation-sdk/current/lib/slint/api/rs/macros" }
+i-slint-common = { path = ".foundation-sdk/current/lib/slint/internal/common" }
+i-slint-compiler = { path = ".foundation-sdk/current/lib/slint/internal/compiler" }
+i-slint-core = { path = ".foundation-sdk/current/lib/slint/internal/core" }
+i-slint-core-macros = { path = ".foundation-sdk/current/lib/slint/internal/core-macros" }
+i-slint-backend-selector = { path = ".foundation-sdk/current/lib/slint/internal/backends/selector" }
+i-slint-renderer-software = { path = ".foundation-sdk/current/lib/slint/internal/renderers/software" }
+const-field-offset = { path = ".foundation-sdk/current/lib/slint/helper_crates/const-field-offset" }
+vtable = { path = ".foundation-sdk/current/lib/slint/helper_crates/vtable" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(keyos)'] }

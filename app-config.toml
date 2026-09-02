@@ -10,6 +10,7 @@ icon = "resources/icon.svg"
 app-id = "0x1f8f092a30b7425273d9b15d5f3dd8c8"
 version = "0.1.0"
 min-keyos-version = "1.4.0"
+signing-identity = "passport-prime-dev"
 
 [publisher]
 name = "Foundation Devices, Inc."
@@ -20,13 +21,4 @@ support-url = "https://foundation.xyz"
 template = ["gui-app", "fs-generic"]
 "os/security" = [
     "GetAppSeed",
-    "GetSeed",
-]
-"os/usbdev" = [
-    "RegisterInterface",
-    "ReadEndpoint",
-    "WriteEndpoint",
-    "SetEndpointStalled",
-    "WaitForConnection",
-    "ResetController",
 ]

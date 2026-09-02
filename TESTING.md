@@ -71,41 +71,21 @@ Both tracks use the same extension and the same NIP-07 clients (e.g.
 
 ## Track B — Device (Passport Prime)
 
-1. **Flash a KeyOS build that includes the app** (and the USB PIO fixes — see
-   [`docs/KEYOS-PATCHES.md`](docs/KEYOS-PATCHES.md)). Build the image on Ubuntu
-   or in the KeyOS Nix shell, then flash over USB (SAM-BA):
+1. **Build and sideload the standalone app:**
 
    ```bash
-   cargo xtask build && cargo xtask flash
+   foundation doctor
+   foundation build --release
+   foundation sideload --release
    ```
 
-2. **Open the app and add a key.** Launch **Nostr Signer** on Passport (hidden
-   apps / Secret Menu) and derive a deterministic NIP-06 identity from the
-   device seed, or import an existing `nsec` by QR.
+2. **Open the app and add a key.** Derive a deterministic NIP-06 identity from
+   the protected app seed, or import an existing `nsec` by QR. Verify local
+   select, rename, archive, restore, delete, and policy-management flows.
 
-3. **Load the extension** (`chrome://extensions` → Developer mode → Load
-   unpacked → `extension/`). Leave it on the default **WebUSB** transport.
-
-4. **Pair over WebUSB.** Open the extension's **Settings** page and click
-   **Pair Passport Prime**, then select your Prime in the Chromium WebUSB picker
-   (this requires a user gesture, which is why it is initiated from the options
-   page). The device registers a vendor-class interface
-   (class/subclass/protocol = `0xFF/0xFF/0xFF`) with two 64-byte interrupt
-   endpoints.
-
-5. **Allow the site and sign.** On noStrudel/Snort, sign in with the extension.
-   The first call from that origin is blocked until you open the extension popup
-   and click **Allow** for the site. After that, `getPublicKey` returns your
-   npub; publishing a note triggers the **on-device approval screen** showing
-   the origin, event kind, content preview, and tags. Approve on Passport, and
-   the client gets the signed event. Try `nip04`/`nip44` encrypt + decrypt the
-   same way — each sensitive operation is gated by on-device approval.
-
-6. **Verify a no-swipe rule on hardware.** From the selected key's detail page,
-   create the same `https://nostrudel.ninja` / kind `22242` auto-sign rule used
-   in Track A. Repeat the console `signEvent` call above. The auth event should
-   sign without a swipe, while a kind `1` note and all `nip04`/`nip44`
-   encrypt/decrypt requests still require approval.
+3. **Confirm the transport status.** SDK 1.4 does not expose raw USB or a public
+   QuantumLink app transport, so the device must report that the host link is
+   offline. Run browser protocol tests in Track A until that API is public.
 
 ---
 
@@ -127,8 +107,5 @@ Both tracks use the same extension and the same NIP-07 clients (e.g.
 
 - **Simulator file/key state** lives under the app's data dir
   (`.passport-nostr-signer-keyos`); deleting it resets identities in the sim.
-- The older WebSerial (CDC-ACM) extension build is **not** included here; this
-  repo ships the WebUSB build that matches `src/transport/webusb.rs`.
-- Production USB VID/PID for the vendor interface is still TBD (see
-  [`docs/PROTOCOL.md`](docs/PROTOCOL.md)); dev builds pair by device selection
-  in the WebUSB picker.
+- The extension's WebUSB client is retained as a prototype and is not supported
+  by the standalone SDK device build.

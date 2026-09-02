@@ -5,15 +5,18 @@ Both sides implement this with types from the `protocol` crate.
 
 ## Layers
 
-1. **Transport.** WebUSB in production; WebSocket for the macOS simulator.
-   Transports carry UTF-8 JSON messages.
-2. **Framing.** WebUSB uses newline-delimited JSON chunked across 64-byte
-   interrupt transfers. WebSocket uses one text frame per JSON message.
+1. **Transport.** WebSocket is implemented for the simulator. A production
+   device transport is pending a public QuantumLink app API.
+2. **Framing.** WebSocket uses one text frame per JSON message. The historical
+   WebUSB proposal used newline-delimited JSON across 64-byte transfers.
 3. **Messages.** JSON requests and responses, described below.
 
 ## 1. Transport
 
-### WebUSB (production)
+### WebUSB (historical proposal)
+
+This interface is not compiled into the standalone SDK app. It remains a wire
+format proposal for a future public host transport.
 
 - Vendor-class USB interface advertised with class/subclass/protocol
   `0xFF/0xFF/0xFF`.

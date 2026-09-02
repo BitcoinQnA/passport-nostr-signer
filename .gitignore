@@ -13,5 +13,4 @@ ui/gen/
 manifest.toml
 # SDK shared resource symlinks materialized by the CLI at build time
 /resources/fonts
-/resources/icons
 /resources/images

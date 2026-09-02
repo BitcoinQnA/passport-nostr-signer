@@ -97,7 +97,13 @@ struct AutoSignFile {
 }
 
 impl Default for AutoSignStore {
-    fn default() -> Self { Self { version: FORMAT_VERSION, rules: Vec::new(), audit: Vec::new() } }
+    fn default() -> Self {
+        Self {
+            version: FORMAT_VERSION,
+            rules: Vec::new(),
+            audit: Vec::new(),
+        }
+    }
 }
 
 impl AutoSignStore {
@@ -107,20 +113,34 @@ impl AutoSignStore {
         }
         let parsed: AutoSignFile = serde_json::from_slice(bytes)?;
         if parsed.version != FORMAT_VERSION {
-            anyhow::bail!("unsupported auto-sign policy format version: {}", parsed.version);
+            anyhow::bail!(
+                "unsupported auto-sign policy format version: {}",
+                parsed.version
+            );
         }
-        let payload = AutoSignPayload { version: parsed.version, rules: parsed.rules, audit: parsed.audit };
+        let payload = AutoSignPayload {
+            version: parsed.version,
+            rules: parsed.rules,
+            audit: parsed.audit,
+        };
         let mac = hex::decode(&parsed.mac)?;
         let expected = mac_bytes(mac_key, &payload)?;
         if !constant_time_eq(&mac, &expected) {
             anyhow::bail!("auto-sign policy MAC verification failed");
         }
-        Ok(Self { version: payload.version, rules: payload.rules, audit: payload.audit })
+        Ok(Self {
+            version: payload.version,
+            rules: payload.rules,
+            audit: payload.audit,
+        })
     }
 
     pub fn to_bytes(&self, mac_key: &[u8; 32]) -> anyhow::Result<Vec<u8>> {
-        let payload =
-            AutoSignPayload { version: self.version, rules: self.rules.clone(), audit: self.audit.clone() };
+        let payload = AutoSignPayload {
+            version: self.version,
+            rules: self.rules.clone(),
+            audit: self.audit.clone(),
+        };
         let file = AutoSignFile {
             version: payload.version,
             rules: payload.rules.clone(),
@@ -131,8 +151,12 @@ impl AutoSignStore {
     }
 
     pub fn rules_for_key(&self, key_uuid: &[u8; 16]) -> Vec<AutoSignRuleInfo> {
-        let mut rules: Vec<_> =
-            self.rules.iter().filter(|r| &r.key_uuid == key_uuid).map(AutoSignRule::info).collect();
+        let mut rules: Vec<_> = self
+            .rules
+            .iter()
+            .filter(|r| &r.key_uuid == key_uuid)
+            .map(AutoSignRule::info)
+            .collect();
         rules.sort_by(|a, b| a.origin.cmp(&b.origin).then(a.kind.cmp(&b.kind)));
         rules
     }
@@ -149,9 +173,15 @@ impl AutoSignStore {
         let origin = normalize_origin(&origin)?;
         let rules_for_key = self.rules.iter().filter(|r| r.key_uuid == key_uuid).count();
         if rules_for_key >= MAX_RULES_PER_KEY {
-            return Err(format!("This key already has the maximum of {MAX_RULES_PER_KEY} auto-sign rules."));
+            return Err(format!(
+                "This key already has the maximum of {MAX_RULES_PER_KEY} auto-sign rules."
+            ));
         }
-        if self.rules.iter().any(|r| r.key_uuid == key_uuid && r.origin == origin && r.kind == kind) {
+        if self
+            .rules
+            .iter()
+            .any(|r| r.key_uuid == key_uuid && r.origin == origin && r.kind == kind)
+        {
             return Err("An auto-sign rule for this origin and kind already exists.".into());
         }
         if max_per_hour == 0 || max_per_hour > 1_000 {
@@ -219,7 +249,11 @@ impl AutoSignStore {
     ) -> Option<[u8; 16]> {
         let origin = normalize_origin(origin).ok()?;
         let rule = self.rules.iter_mut().find(|r| {
-            r.enabled && &r.key_uuid == key_uuid && r.origin == origin && r.kind == kind && !r.is_expired(now)
+            r.enabled
+                && &r.key_uuid == key_uuid
+                && r.origin == origin
+                && r.kind == kind
+                && !r.is_expired(now)
         })?;
 
         rule.roll_window(now);
@@ -243,7 +277,14 @@ impl AutoSignStore {
         now: u64,
     ) {
         let origin = normalize_origin(origin).unwrap_or_else(|_| origin.trim().to_string());
-        self.audit.push(AutoSignAuditEntry { timestamp: now, rule_id, key_uuid, origin, kind, event_id });
+        self.audit.push(AutoSignAuditEntry {
+            timestamp: now,
+            rule_id,
+            key_uuid,
+            origin,
+            kind,
+            event_id,
+        });
         if self.audit.len() > AUDIT_LIMIT {
             let excess = self.audit.len() - AUDIT_LIMIT;
             self.audit.drain(0..excess);
@@ -266,10 +307,14 @@ impl AutoSignRule {
         }
     }
 
-    fn is_expired(&self, now: u64) -> bool { self.expires_at != 0 && now >= self.expires_at }
+    fn is_expired(&self, now: u64) -> bool {
+        self.expires_at != 0 && now >= self.expires_at
+    }
 
     fn roll_window(&mut self, now: u64) {
-        if now < self.window_started_at || now.saturating_sub(self.window_started_at) >= ONE_HOUR_SECS {
+        if now < self.window_started_at
+            || now.saturating_sub(self.window_started_at) >= ONE_HOUR_SECS
+        {
             self.window_started_at = now;
             self.used_in_window = 0;
         }
@@ -288,8 +333,9 @@ pub fn normalize_origin(input: &str) -> Result<String, String> {
         return Err("Origin must not contain spaces.".into());
     }
 
-    let (scheme, rest) =
-        trimmed.split_once("://").ok_or_else(|| "Origin must start with https:// or http://.".to_string())?;
+    let (scheme, rest) = trimmed
+        .split_once("://")
+        .ok_or_else(|| "Origin must start with https:// or http://.".to_string())?;
     let scheme = scheme.to_ascii_lowercase();
     if scheme != "https" && scheme != "http" {
         return Err("Only http:// and https:// origins are supported.".into());
@@ -305,7 +351,8 @@ pub fn normalize_origin(input: &str) -> Result<String, String> {
 }
 
 pub fn derive_mac_key(app_seed: &[u8; 32]) -> [u8; 32] {
-    let mut mac = HmacSha256::new_from_slice(app_seed).expect("HMAC accepts keys of any byte length");
+    let mut mac =
+        HmacSha256::new_from_slice(app_seed).expect("HMAC accepts keys of any byte length");
     mac.update(MAC_DOMAIN);
     let bytes = mac.finalize().into_bytes();
     let mut out = [0u8; 32];
@@ -333,7 +380,8 @@ pub fn save(store: &AutoSignStore, path: &Path, mac_key: &[u8; 32]) -> anyhow::R
 
 fn mac_bytes(mac_key: &[u8; 32], payload: &AutoSignPayload) -> anyhow::Result<[u8; 32]> {
     let bytes = serde_json::to_vec(payload)?;
-    let mut mac = HmacSha256::new_from_slice(mac_key).expect("HMAC accepts keys of any byte length");
+    let mut mac =
+        HmacSha256::new_from_slice(mac_key).expect("HMAC accepts keys of any byte length");
     mac.update(&bytes);
     let bytes = mac.finalize().into_bytes();
     let mut out = [0u8; 32];
@@ -353,7 +401,10 @@ fn constant_time_eq(left: &[u8], right: &[u8; 32]) -> bool {
 }
 
 fn temp_path(path: &Path) -> PathBuf {
-    let mut name = path.file_name().map(|s| s.to_os_string()).unwrap_or_else(|| "autosign".into());
+    let mut name = path
+        .file_name()
+        .map(|s| s.to_os_string())
+        .unwrap_or_else(|| "autosign".into());
     name.push(".tmp");
     path.with_file_name(name)
 }
@@ -381,13 +432,20 @@ mod hex_bytes_16 {
 mod tests {
     use super::*;
 
-    fn key() -> [u8; 16] { [7u8; 16] }
+    fn key() -> [u8; 16] {
+        [7u8; 16]
+    }
 
-    fn mac_key() -> [u8; 32] { derive_mac_key(&[9u8; 32]) }
+    fn mac_key() -> [u8; 32] {
+        derive_mac_key(&[9u8; 32])
+    }
 
     #[test]
     fn origin_normalization_is_exact_and_pathless() {
-        assert_eq!(normalize_origin(" HTTPS://NOSTRUDEL.NINJA/ ").unwrap(), "https://nostrudel.ninja");
+        assert_eq!(
+            normalize_origin(" HTTPS://NOSTRUDEL.NINJA/ ").unwrap(),
+            "https://nostrudel.ninja"
+        );
         assert!(normalize_origin("https://nostrudel.ninja/write").is_err());
         assert!(normalize_origin("chrome-extension://abc").is_err());
     }
@@ -395,16 +453,26 @@ mod tests {
     #[test]
     fn reserve_respects_hourly_limit() {
         let mut store = AutoSignStore::default();
-        store.add_rule(key(), "https://nostrudel.ninja".into(), 22242, 0, 1, 10).unwrap();
-        assert!(store.reserve_match(&key(), "https://nostrudel.ninja", 22242, 20).is_some());
-        assert!(store.reserve_match(&key(), "https://nostrudel.ninja", 22242, 30).is_none());
-        assert!(store.reserve_match(&key(), "https://nostrudel.ninja", 22242, 3_700).is_some());
+        store
+            .add_rule(key(), "https://nostrudel.ninja".into(), 22242, 0, 1, 10)
+            .unwrap();
+        assert!(store
+            .reserve_match(&key(), "https://nostrudel.ninja", 22242, 20)
+            .is_some());
+        assert!(store
+            .reserve_match(&key(), "https://nostrudel.ninja", 22242, 30)
+            .is_none());
+        assert!(store
+            .reserve_match(&key(), "https://nostrudel.ninja", 22242, 3_700)
+            .is_some());
     }
 
     #[test]
     fn serializes_ids_as_hex() {
         let mut store = AutoSignStore::default();
-        store.add_rule(key(), "https://example.com".into(), 1, 0, 10, 1).unwrap();
+        store
+            .add_rule(key(), "https://example.com".into(), 1, 0, 10, 1)
+            .unwrap();
         let json = String::from_utf8(store.to_bytes(&mac_key()).unwrap()).unwrap();
         assert!(json.contains("\"key_uuid\": \"07070707070707070707070707070707\""));
         let restored = AutoSignStore::from_bytes(json.as_bytes(), &mac_key()).unwrap();
@@ -414,7 +482,9 @@ mod tests {
     #[test]
     fn rejects_tampered_policy_file() {
         let mut store = AutoSignStore::default();
-        store.add_rule(key(), "https://example.com".into(), 1, 0, 10, 1).unwrap();
+        store
+            .add_rule(key(), "https://example.com".into(), 1, 0, 10, 1)
+            .unwrap();
         let json = String::from_utf8(store.to_bytes(&mac_key()).unwrap()).unwrap();
         let tampered = json.replace("https://example.com", "https://evil.example");
         assert!(AutoSignStore::from_bytes(tampered.as_bytes(), &mac_key()).is_err());
